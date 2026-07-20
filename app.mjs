@@ -60,7 +60,6 @@ const FilterType = {
 const FILTER_STYLES = {attribute: {name: "a", width: 140}, style: {paddingRight: 16}};
 const Filter = makeComponent("filter", function(props) {
   const {state, changeState, i, j} = props;
-  console.log({i, j})
   const selectedFilter = state.filters[i][j] ?? {
     type: FilterType.First20TagsInclude,
     value: "",
@@ -195,7 +194,6 @@ const Root = makeComponent("root", function() {
       changeState({dataLoading: false, ...parseData(await response.text())});
     });
   }
-  console.log("state", {...state});
   // filters    
   const column = this.append(Column({attribute: {width: "max", margin: 16, gap: 8}}));
   column.append(Filters({state, changeState}));
@@ -205,7 +203,6 @@ const Root = makeComponent("root", function() {
     state.filters.every(orFilters => orFilters.some(filter => {
       if (!filter?.value) return true;
       const {type, value} = filter;
-      console.log("ayaya.filter", filter);
       switch (type) {
       case FilterType.First20TagsInclude: {
         return row.tags.indexOf(value) !== -1;
@@ -225,7 +222,6 @@ const Root = makeComponent("root", function() {
       }
     }))
   ));
-  console.log({rows: state.rows, filteredRows});
   column.append(Table({
     columns: [
       {
