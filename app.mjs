@@ -48,7 +48,7 @@ const t = {
   First5TagsExclude: "First 5 tags exclude",
   RatingGTE: "Rating >=",
   RatingLTE: "Rating <=",
-}
+};
 const FilterType = {
   First20TagsInclude: "First20TagsInclude",
   First5TagsInclude: "First5TagsInclude",
@@ -56,7 +56,7 @@ const FilterType = {
   First5TagsExclude: "First5TagsExclude",
   RatingGTE: "RatingGTE",
   RatingLTE: "RatingLTE",
-}
+};
 const FILTER_STYLES = {attribute: {name: "a", width: 140}, style: {paddingRight: 16}};
 const Filter = makeComponent("filter", function(props) {
   const {state, changeState, i, j} = props;
@@ -182,6 +182,7 @@ function parseData(csvText) {
 }
 const Root = makeComponent("root", function() {
   // TODO: remember filters in query
+  // TODO: scrape data from `#userReviews .game_review_summary` and  `.app_tag`
   const [state, changeState] = this.useState({
     filters: [[undefined]],
     dataLoading: undefined,
