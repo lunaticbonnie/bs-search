@@ -42,32 +42,37 @@ const RowWrap = makeComponent("row-wrap", function() {
 
 // app
 const t = {
-  First5TagsInclude: "First 5 tags include",
   First20TagsInclude: "First 20 tags include",
-  First5TagsExclude: "First 5 tags exclude",
+  First5TagsInclude: "First 5 tags include",
   First20TagsExclude: "First 20 tags exclude",
+  First5TagsExclude: "First 5 tags exclude",
   RatingGTE: "Rating >=",
   RatingLTE: "Rating <=",
 }
 const FilterType = {
-  First5TagsInclude: "First5TagsInclude",
   First20TagsInclude: "First20TagsInclude",
-  First5TagsExclude: "First5TagsExclude",
+  First5TagsInclude: "First5TagsInclude",
   First20TagsExclude: "First20TagsExclude",
+  First5TagsExclude: "First5TagsExclude",
   RatingGTE: "RatingGTE",
   RatingLTE: "RatingLTE",
 }
 const FILTER_STYLES = {attribute: {name: "a", width: 140}, style: {paddingRight: 16}};
 const Filter = makeComponent("filter", function(props) {
-  const {state, changeState, i} = props;
-  const selectedFilter = state.filters[i] ?? {
-    type: FilterType.First5TagsInclude,
+  const {state, changeState, i, j} = props;
+  console.log({i, j})
+  const selectedFilter = state.filters[i][j] ?? {
+    type: FilterType.First20TagsInclude,
     value: "",
   };
   const setSelectedFilter = (diff) => {
-    const newFilter = {...selectedFilter, ...diff};
     const newFilters = [...state.filters];
-    newFilters.splice(i, 1, newFilter);
+    
+    const newOrFilters = [...state.filters[i]];
+    const newFilter = {...selectedFilter, ...diff};
+    newOrFilters.splice(j, 1, newFilter);
+
+    newFilters.splice(i, 1, newOrFilters);
     changeState({filters: newFilters});
   }
   const column = this.append(Column());
@@ -95,24 +100,51 @@ const Filter = makeComponent("filter", function(props) {
     }
   }
 });
-const Filters = makeComponent("filters", function(props) {
-  const {state, changeState} = props;
-  const row = this.append(Row({attribute: {gap: 8}}));
-  for (let i = 0; i < state.filters.length; i++) {
-    row.append(Filter({state, changeState, i}));
-  }
-  const buttons = row.append(Row());
+const FilterButtons = makeComponent("filter-buttons", function (props) {
+  const {onAdd, onRemove} = props;
+  const buttons = this.append(Row());
   buttons.append(button("-", {
     attribute: {width: 30, height: 30},
-    events: {
-      click: () => changeState({filters: [...state.filters].slice(0, state.filters.length - 1)}),
-    },
+    events: {click: onRemove},
   }));
   buttons.append(button("+", {
     attribute: {width: 30, height: 30},
-    events: {
-      click: () => changeState({filters: [...state.filters, undefined]}),
-    },
+    events: {click: onAdd},
+  }));
+});
+const Filters = makeComponent("filters", function(props) {
+  const {state, changeState} = props;
+  const column = this.append(Column({attribute: {gap: 8}}));
+  // existing filters
+  for (let i = 0; i < state.filters.length; i++) {
+    const row = column.append(RowWrap({attribute: {gap: 8}}));
+    row.append(span("and", {style: i === 0 ? {visibility: "hidden"} : {}}));
+    const orFilters = state.filters[i];
+    for (let j = 0; j < orFilters.length; j++) {
+      if (j !== 0) row.append(span("or"));
+      row.append(Filter({state, changeState, i, j}));
+    }
+    // new OR
+    row.append(FilterButtons({
+      onAdd: () => {
+        const newFilters = [...state.filters];
+        const newOrFilters = [...orFilters, undefined];
+        newFilters.splice(i, 1, newOrFilters);
+        changeState({filters: newFilters});
+      },
+      onRemove: () => {
+        const newFilters = [...state.filters];
+        const newOrFilters = orFilters.slice(0, orFilters.length - 1);
+        newFilters.splice(i, 1, newOrFilters);
+        changeState({filters: newFilters});
+      },
+    }));
+  }
+  // new AND
+  const buttons = column.append(FilterButtons({
+    style: {marginLeft: 110},
+    onAdd: () => changeState({filters: [...state.filters, [undefined]]}),
+    onRemove: () => changeState({filters: [...state.filters].slice(0, state.filters.length - 1)}),
   }));
 });
 const Table = makeComponent("table", function(props) {
@@ -151,9 +183,8 @@ function parseData(csvText) {
 }
 const Root = makeComponent("root", function() {
   // TODO: remember filters in query
-  // TODO: allow both AND and OR
   const [state, changeState] = this.useState({
-    filters: [undefined],
+    filters: [[undefined]],
     dataLoading: undefined,
     rows: [],
     allTags: [],
@@ -167,44 +198,33 @@ const Root = makeComponent("root", function() {
   console.log("state", {...state});
   // filters    
   const column = this.append(Column({attribute: {width: "max", margin: 16, gap: 8}}));
-  column.append(Filters({
-    state,
-    changeState,
-  }));
-  column.append(Hr());
+  column.append(Filters({state, changeState}));
+  column.append(Hr({attribute: {width: "max"}}));
   // table
-  let filteredRows = state.rows;
-  for (const filter of state.filters) {
-    if (!filter?.value) continue;
-    const {type, value} = filter;
-    switch (type) {
-    case FilterType.First5TagsInclude: {
-      filteredRows = filteredRows.filter(row => {
-        const first5Tags = row.tags.slice(0, 6);
-        return first5Tags.indexOf(value) !== -1;
-      });
-    } break;
-    case FilterType.First20TagsInclude: {
-      filteredRows = filteredRows.filter(row => {
+  const filteredRows = state.rows.filter(row => (
+    state.filters.every(orFilters => orFilters.some(filter => {
+      if (!filter?.value) return true;
+      const {type, value} = filter;
+      console.log("ayaya.filter", filter);
+      switch (type) {
+      case FilterType.First20TagsInclude: {
         return row.tags.indexOf(value) !== -1;
-      });
-    } break;
-    case FilterType.First5TagsExclude: {
-      filteredRows = filteredRows.filter(row => {
-        const first5Tags = row.tags.slice(0, 6);
-        return first5Tags.indexOf(value) === -1;
-      });
-    } break;
-    case FilterType.First20TagsExclude: {
-      filteredRows = filteredRows.filter(row => {
+      } break;
+      case FilterType.First5TagsInclude: {
+        return row.tags.slice(0, 6).indexOf(value) !== -1;
+      } break;
+      case FilterType.First20TagsExclude: {
         return row.tags.indexOf(value) === -1;
-      });
-    } break;
-    default: {
-      console.error(`FilterType ${type} is not implemented!`);
-    } break;
-    }
-  }
+      } break;
+      case FilterType.First5TagsExclude: {
+        return row.tags.slice(0, 6).indexOf(value) === -1;
+      } break;
+      default: {
+        console.error(`FilterType ${type} is not implemented!`);
+      } break;
+      }
+    }))
+  ));
   console.log({rows: state.rows, filteredRows});
   column.append(Table({
     columns: [
