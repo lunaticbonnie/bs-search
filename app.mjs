@@ -226,7 +226,7 @@ const Root = makeComponent("root", function() {
       changeState({dataLoading: false, ...parseData(await response.text())});
     });
   }
-  // filters    
+  // filters
   const column = this.append(Column({attribute: {width: "max", margin: 16, gap: 8}}));
   column.append(Filters({state, changeState}));
   column.append(Hr({attribute: {width: "max"}}));
