@@ -61,7 +61,7 @@ const t = {
   [FilterType.RatingGTE]: "Rating% >=",
   [FilterType.RatingLTE]: "Rating% <=",
 };
-const FILTER_STYLES = {attribute: {name: "a", width: 140}, style: {paddingRight: 16}};
+const FILTER_STYLES = {attribute: {name: "a", width: 146}, style: {paddingRight: 16}};
 const Filter = makeComponent("filter", function(props) {
   const {state, changeState, i, j} = props;
   const selectedFilter = state.filters[i][j] ?? {
@@ -271,17 +271,21 @@ const Root = makeComponent("root", function() {
   column.append(Table({
     columns: [
       {
-        label: "Name",
-        maxWidth: 240,
+        label: "Rating",
+        maxWidth: 72,
         render: (row, cell) => {
-          cell.append(hyperlink(row.name, {href: `https://store.steampowered.com/app/${row.id}`, attribute: {target: "_blank"}}));
+          cell.append(span(`${row.rating}%`, {style: {textAlign: "center"}, attribute: {title: row.recentReviews, width: "max"}}));
         },
       },
       {
-        label: "Rating",
-        maxWidth: 64,
+        label: "Name",
+        maxWidth: 240,
         render: (row, cell) => {
-          cell.append(span(`${row.rating}%`, {style: {textAlign: "center"}, attribute: {title: row.recentReviews, width: "max"}}));
+          cell.append(hyperlink(row.name, {
+            href: `https://store.steampowered.com/app/${row.id}`,
+            style: {lineHeight: "1.1"},
+            attribute: {target: "_blank", width: "240"},
+          }));
         },
       },
       {
