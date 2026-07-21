@@ -7,7 +7,7 @@ import requests
 from html.parser import HTMLParser
 
 # params
-GAMES_CSV_PATH = "games.csv"
+GAMES_CSV_PATH = "steam.csv"
 START_TXT_PATH = "start.txt"
 PAGE_SIZE = 50
 SECONDS_BETWEEN_REQUESTS = 60
@@ -92,8 +92,10 @@ if __name__ == "__main__":
   start = read_int(START_TXT_PATH)
   while True:
     # GET next page of `app_ids`
-    print(f"-- from: {start} --")
+    print(f"-- {start}:{start + PAGE_SIZE} --")
     response, response_ok = fetch_text("https://store.steampowered.com/search/results/", {
+      # DLC=21, Software=994, Mods=997, Games=998
+      "category1": "21,994,997,998",
       "start": start,
       "count": PAGE_SIZE,
       "sort_by": "Released_DESC",
@@ -106,12 +108,12 @@ if __name__ == "__main__":
     # parse `results_html`
     results_html = data["results_html"]
     app_ids = re.findall(r'data-ds-appid="(\d+)"', results_html)
+    print(f"app_ids: {app_ids}")
     # set next request to next page
     start += PAGE_SIZE
     if start > total_count: start = 0
     write_int(START_TXT_PATH, start)
     # get game infos
-    print(f"matches: {app_ids}")
     for app_id in app_ids:
       print(f"-- {app_id} --")
       response, response_ok = fetch_text(f"https://store.steampowered.com/app/{app_id}")
