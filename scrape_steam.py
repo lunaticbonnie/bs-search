@@ -6,13 +6,29 @@ import time
 import requests
 from html.parser import HTMLParser
 
+# params
+GAMES_CSV_PATH = "games.csv"
+START_TXT_PATH = "start.txt"
+PAGE_SIZE = 50
+SECONDS_BETWEEN_REQUESTS = 60
+assert(SECONDS_BETWEEN_REQUESTS >= 10)
+
+# request utils
+def fetch_text(url, params = None, **kwargs):
+  time.sleep(SECONDS_BETWEEN_REQUESTS)
+  response = requests.get(url, params, **kwargs)
+  print(f"status: {response.status_code} {response.reason}")
+  response.encoding = "utf8"
+  return response, response.status_code == 200
+
+# html utils
 class HtmlParser(HTMLParser):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.current_element = None
     self.nodes = []
   def handle_starttag(self, tag, attrs):
-    acc = {"tagName": tag, "class": "", "textContent": ""}
+    acc = {"tagName": tag, "id": "", "class": "", "textContent": ""}
     for k, v in attrs: acc[k] = v
     # NOTE: this is technically incorrect, but I don't want to fix self-closing tags in the built-in parser
     self.current_element = acc
@@ -38,22 +54,7 @@ def find_html_elements(text: str, key):
   elements = HtmlParser.find_elements(text)
   return [v for v in elements if key(v)]
 
-# params
-GAMES_CSV_PATH = "games.csv"
-START_TXT_PATH = "start.txt"
-PAGE_SIZE = 50
-SECONDS_BETWEEN_REQUESTS = 10
-assert(SECONDS_BETWEEN_REQUESTS >= 10)
-
-# utils
-def fetch_text(url, params = None, **kwargs):
-  time.sleep(SECONDS_BETWEEN_REQUESTS)
-  response = requests.get(url, params, **kwargs)
-  print(f"status: {response.status_code} {response.reason}")
-  response.encoding = "utf8"
-  return response, response.status_code == 200
-
-
+# file utils
 def write_file_atomically(file_path: str, content: str):
   tmp_file_path = f"{file_path}.tmp"
   with open(tmp_file_path, "w+", encoding="utf8") as f:
@@ -64,13 +65,15 @@ def read_games_csv(file_path: str):
   acc = dict[str, list[str]]()
   try:
     with open(file_path, "r", encoding="utf8", newline='') as f:
-      for row in csv.reader(f, delimiter=';'):
+      for row in csv.reader(f, delimiter=';', skipinitialspace=True):
         acc[row[0]] = row
   except FileNotFoundError:
     pass
   return acc
 def write_games_csv(file_path: str, csv: dict[str, list[str]]):
-  content = "\n".join(v for v in csv.values())
+  content = ""
+  for row in csv.values():
+    content += f"{"; ".join(row)}\n"
   write_file_atomically(file_path, content)
 
 def write_int(file_path: str, value: int):
@@ -89,6 +92,7 @@ if __name__ == "__main__":
   start = read_int(START_TXT_PATH)
   while True:
     # GET next page of `app_ids`
+    print(f"-- from: {start} --")
     response, response_ok = fetch_text("https://store.steampowered.com/search/results/", {
       "start": start,
       "count": PAGE_SIZE,
@@ -109,16 +113,21 @@ if __name__ == "__main__":
     # get game infos
     print(f"matches: {app_ids}")
     for app_id in app_ids:
-      print(f"app_id: {app_id}")
+      print(f"-- {app_id} --")
       response, response_ok = fetch_text(f"https://store.steampowered.com/app/{app_id}")
       if not response_ok: continue
-      # parse recent reviews
+      # parse app name
       html = response.text
-      recent_reviews_element = find_html_element(html, lambda node: "user_reviews_summary_row" in node["class"])
-      recent_reviews = recent_reviews_element["data-tooltip-html"]
+      name_node = find_html_element(html, lambda node: node["id"] == "appHubAppName")
+      name = name_node["textContent"]
+      print(f"name: {name}")
+      # parse recent reviews
+      recent_reviews_node = find_html_element(html, lambda node: "user_reviews_summary_row" in node["class"])
+      recent_reviews = recent_reviews_node["data-tooltip-html"]
       print(f"recent_reviews: {recent_reviews}")
       # parse tags
-      tag_elements = find_html_elements(html, lambda node: node["tagName"] == "a" and "app_tag" in node["class"] and "add_button" not in node["class"])
-      tags = [v["textContent"] for v in tag_elements]
+      tag_nodes = find_html_elements(html, lambda node: node["tagName"] == "a" and "app_tag" in node["class"] and "add_button" not in node["class"])
+      tags = [node["textContent"] for node in tag_nodes]
       print(f"tags: {tags}")
-
+      games[app_id] = [app_id, name, recent_reviews, *tags]
+    write_games_csv(GAMES_CSV_PATH, games)
