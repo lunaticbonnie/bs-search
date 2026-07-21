@@ -1,6 +1,9 @@
 import { button, div, divider, hyperlink, makeComponent, renderRoot, span } from "./jsgui.mjs";
 
 // html elements
+const Input = makeComponent("input", function() {
+  this.useNode(() => document.createElement("input"));
+});
 const Select = makeComponent("select", function() {
   this.useNode(() => document.createElement("select"));
 });
@@ -16,9 +19,6 @@ const Option = makeComponent("option", function(value, label, props) {
 const Hr = makeComponent("hr", function() {
   this.useNode(() => document.createElement("hr"));
 });
-const Input = makeComponent("input", function() {
-  this.useNode(() => document.createElement("input"));
-})
 
 // qiss elements
 const Column = makeComponent("column", function() {
@@ -41,21 +41,21 @@ const RowWrap = makeComponent("row-wrap", function() {
 });
 
 // app
-const t = {
-  First20TagsInclude: "First 20 tags include",
-  First5TagsInclude: "First 5 tags include",
-  First20TagsExclude: "First 20 tags exclude",
-  First5TagsExclude: "First 5 tags exclude",
-  RatingGTE: "Rating >=",
-  RatingLTE: "Rating <=",
-};
 const FilterType = {
-  First20TagsInclude: "First20TagsInclude",
-  First5TagsInclude: "First5TagsInclude",
-  First20TagsExclude: "First20TagsExclude",
-  First5TagsExclude: "First5TagsExclude",
-  RatingGTE: "RatingGTE",
-  RatingLTE: "RatingLTE",
+  First20TagsInclude: "I20",
+  First5TagsInclude: "I5",
+  First20TagsExclude: "E20",
+  First5TagsExclude: "E5",
+  RatingGTE: "RG",
+  RatingLTE: "RL",
+};
+const t = {
+  [FilterType.First20TagsInclude]: "First 20 tags include",
+  [FilterType.First5TagsInclude]: "First 5 tags include",
+  [FilterType.First20TagsExclude]: "First 20 tags exclude",
+  [FilterType.First5TagsExclude]: "First 5 tags exclude",
+  [FilterType.RatingGTE]: "Rating% >=",
+  [FilterType.RatingLTE]: "Rating% <=",
 };
 const FILTER_STYLES = {attribute: {name: "a", width: 140}, style: {paddingRight: 16}};
 const Filter = makeComponent("filter", function(props) {
@@ -80,22 +80,34 @@ const Filter = makeComponent("filter", function(props) {
     ...FILTER_STYLES,
     events: {input: (event) => setSelectedFilter({type: event.target.value})},
   }));
-  for (let filterType in FilterType) {
+  for (const filterType of Object.values(FilterType)) {
     filterTypeSelect.append(Option(filterType, t[filterType]));
   }
   // filter value
-  const filterValueSelect = column.append(Select({
-    ...FILTER_STYLES,
-    events: {input: (event) => setSelectedFilter({value: event.target.value})},
-  }));
-  filterValueSelect.append(Option(""));
-  for (const tag of state.allTags) {
-    filterValueSelect.append(Option(tag));
+  let filterValueInput;
+  switch (selectedFilter.type) {
+  case FilterType.RatingGTE:
+  case FilterType.RatingLTE: {
+    filterValueInput = column.append(Input({
+      attribute: {...FILTER_STYLES.attribute, type: "number", min: 0, max: 100, step: 1},
+      events: {input: (event) => setSelectedFilter({value: event.target.value})},
+    }));
+  } break;
+  default: {
+    filterValueInput = column.append(Select({
+      ...FILTER_STYLES,
+      events: {input: (event) => setSelectedFilter({value: event.target.value})},
+    }));
+    filterValueInput.append(Option(""));
+    for (const tag of state.allTags) {
+      filterValueInput.append(Option(tag));
+    }
+  } break;
   }
   return {
     onMount: () => {
       filterTypeSelect.node.value = selectedFilter.type;
-      filterValueSelect.node.value = selectedFilter.value;
+      filterValueInput.node.value = selectedFilter.value;
     }
   }
 });
@@ -224,6 +236,12 @@ const Root = makeComponent("root", function() {
       } break;
       case FilterType.First5TagsExclude: {
         return row.tags.slice(0, 5).indexOf(value) === -1;
+      } break;
+      case FilterType.RatingGTE: {
+        return row.rating >= value;
+      } break;
+      case FilterType.RatingLTE: {
+        return row.rating <= value;
       } break;
       default: {
         console.error(`FilterType ${type} is not implemented!`);
