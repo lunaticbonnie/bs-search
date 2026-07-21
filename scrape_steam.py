@@ -73,8 +73,11 @@ def read_games_csv(file_path: str):
 def write_games_csv(file_path: str, csv: dict[str, list[str]]):
   content = ""
   for row in csv.values():
-    content += f"{"; ".join(row)}\n"
+    content += f"{"; ".join(escape_csv(v) for v in row)}\n"
   write_file_atomically(file_path, content)
+def escape_csv(value: str) -> str:
+  if ";" not in value: return value
+  return f'"{re.sub('"', '""', value)}"'
 
 def write_int(file_path: str, value: int):
   content = str(value)
