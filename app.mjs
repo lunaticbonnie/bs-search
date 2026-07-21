@@ -162,18 +162,27 @@ const Table = makeComponent("table", function(props) {
   }
 });
 
+function decodeCsv(value) {
+  if (!value.startsWith('"')) return value;
+  value = value.slice(1, value.length-1);
+  return value.replace(/""/g, '"');
+}
 function parseData(csvText) {
   const csvLines = csvText.split(/\r?\n/).slice(1);
   const rows = [];
   const tags_set = new Set();
   for (const line of csvLines) {
     const csvRow = line.split("; ");
-    if (csvRow.length !== 23) {
+    if (!line) continue;
+    if (csvRow.length > 23) {
       console.error(`Invalid row: ${csvRow}`);
-      break;
+      continue;
     }
-    const [id, name, recentReviews, ...tags] = csvRow;
-    rows.push({id, name, recentReviews: +recentReviews, tags});
+    const [id, name, recentReviews, ...tags] = csvRow.map(decodeCsv);
+    const match = recentReviews.match(/(\d+)%.*? are positive/)
+    let rating = +match?.[1];
+    if (Number.isNaN(rating)) rating = 0;
+    rows.push({id, name, rating, recentReviews, tags});
     for (const tag of tags) tags_set.add(tag);
   }
   rows.sort((a, b) => b.recentReviews - a.recentReviews);
@@ -182,7 +191,6 @@ function parseData(csvText) {
 }
 const Root = makeComponent("root", function() {
   // TODO: remember filters in query
-  // TODO: scrape data from `#userReviews .game_review_summary` and  `.app_tag`
   const [state, changeState] = this.useState({
     filters: [[undefined]],
     dataLoading: undefined,
@@ -209,13 +217,13 @@ const Root = makeComponent("root", function() {
         return row.tags.indexOf(value) !== -1;
       } break;
       case FilterType.First5TagsInclude: {
-        return row.tags.slice(0, 6).indexOf(value) !== -1;
+        return row.tags.slice(0, 5).indexOf(value) !== -1;
       } break;
       case FilterType.First20TagsExclude: {
         return row.tags.indexOf(value) === -1;
       } break;
       case FilterType.First5TagsExclude: {
-        return row.tags.slice(0, 6).indexOf(value) === -1;
+        return row.tags.slice(0, 5).indexOf(value) === -1;
       } break;
       default: {
         console.error(`FilterType ${type} is not implemented!`);
@@ -234,9 +242,9 @@ const Root = makeComponent("root", function() {
       },
       {
         label: "Rating",
-        maxWidth: 60,
+        maxWidth: 64,
         render: (row, cell) => {
-          cell.append(span(`${row.recentReviews}%`));
+          cell.append(span(`${row.rating}%`, {style: {textAlign: "center"}, attribute: {title: row.recentReviews, width: "max"}}));
         },
       },
       {
