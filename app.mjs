@@ -43,17 +43,21 @@ const RowWrap = makeComponent("row-wrap", function() {
 // app
 const FilterType = {
   First20TagsInclude: "I20",
-  First5TagsInclude: "I5",
   First20TagsExclude: "E20",
+  First5TagsInclude: "I5",
   First5TagsExclude: "E5",
+  FuzzyInclude: "FI",
+  FuzzyExclude: "FE",
   RatingGTE: "RG",
   RatingLTE: "RL",
 };
 const t = {
   [FilterType.First20TagsInclude]: "First 20 tags include",
-  [FilterType.First5TagsInclude]: "First 5 tags include",
   [FilterType.First20TagsExclude]: "First 20 tags exclude",
+  [FilterType.First5TagsInclude]: "First 5 tags include",
   [FilterType.First5TagsExclude]: "First 5 tags exclude",
+  [FilterType.FuzzyInclude]: "Fuzzy include",
+  [FilterType.FuzzyExclude]: "Fuzzy exclude",
   [FilterType.RatingGTE]: "Rating% >=",
   [FilterType.RatingLTE]: "Rating% <=",
 };
@@ -92,6 +96,13 @@ const Filter = makeComponent("filter", function(props) {
       attribute: {...FILTER_STYLES.attribute, type: "number", min: 0, max: 100, step: 1},
       events: {input: (event) => setSelectedFilter({value: event.target.value})},
     }));
+  } break;
+  case FilterType.FuzzyInclude:
+  case FilterType.FuzzyExclude: {
+    filterValueInput = column.append(Input({
+      attribute: FILTER_STYLES.attribute,
+      events: {input: (event) => setSelectedFilter({value: event.target.value})},
+    }))
   } break;
   default: {
     filterValueInput = column.append(Select({
@@ -228,14 +239,22 @@ const Root = makeComponent("root", function() {
       case FilterType.First20TagsInclude: {
         return row.tags.indexOf(value) !== -1;
       } break;
-      case FilterType.First5TagsInclude: {
-        return row.tags.slice(0, 5).indexOf(value) !== -1;
-      } break;
       case FilterType.First20TagsExclude: {
         return row.tags.indexOf(value) === -1;
       } break;
+      case FilterType.First5TagsInclude: {
+        return row.tags.slice(0, 5).indexOf(value) !== -1;
+      } break;
       case FilterType.First5TagsExclude: {
         return row.tags.slice(0, 5).indexOf(value) === -1;
+      } break;
+      case FilterType.FuzzyInclude: {
+        const valueLowercase = value.toLowerCase();
+        return row.tags.some(tag => tag.toLowerCase().includes(valueLowercase));
+      } break;
+      case FilterType.FuzzyExclude: {
+        const valueLowercase = value.toLowerCase();
+        return row.tags.every(tag => !tag.toLowerCase().includes(valueLowercase));
       } break;
       case FilterType.RatingGTE: {
         return row.rating >= value;
