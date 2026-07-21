@@ -61,7 +61,11 @@ const t = {
   [FilterType.RatingGTE]: "Rating% >=",
   [FilterType.RatingLTE]: "Rating% <=",
 };
-const FILTER_STYLES = {attribute: {name: "a", width: 146}, style: {paddingRight: 16}};
+const FILTER_INPUT_STYLES = {style: {width: 146}, attribute: {name: "a"}};
+const FILTER_SELECT_STYLES = {
+  ...FILTER_INPUT_STYLES,
+  style: {...FILTER_INPUT_STYLES.style, paddingRight: 16},
+}
 const Filter = makeComponent("filter", function(props) {
   const {state, changeState, i, j} = props;
   const selectedFilter = state.filters[i][j] ?? {
@@ -81,7 +85,7 @@ const Filter = makeComponent("filter", function(props) {
   const column = this.append(Column());
   // filter type
   const filterTypeSelect = column.append(Select({
-    ...FILTER_STYLES,
+    ...FILTER_SELECT_STYLES,
     events: {input: (event) => setSelectedFilter({type: event.target.value})},
   }));
   for (const filterType of Object.values(FilterType)) {
@@ -93,20 +97,21 @@ const Filter = makeComponent("filter", function(props) {
   case FilterType.RatingGTE:
   case FilterType.RatingLTE: {
     filterValueInput = column.append(Input({
-      attribute: {...FILTER_STYLES.attribute, type: "number", min: 0, max: 100, step: 1},
+      ...FILTER_INPUT_STYLES,
+      attribute: {...FILTER_INPUT_STYLES.attribute, type: "number", min: 0, max: 100, step: 1},
       events: {input: (event) => setSelectedFilter({value: event.target.value})},
     }));
   } break;
   case FilterType.FuzzyInclude:
   case FilterType.FuzzyExclude: {
     filterValueInput = column.append(Input({
-      attribute: FILTER_STYLES.attribute,
+      ...FILTER_INPUT_STYLES,
       events: {input: (event) => setSelectedFilter({value: event.target.value})},
     }))
   } break;
   default: {
     filterValueInput = column.append(Select({
-      ...FILTER_STYLES,
+      ...FILTER_SELECT_STYLES,
       events: {input: (event) => setSelectedFilter({value: event.target.value})},
     }));
     filterValueInput.append(Option(""));
@@ -126,20 +131,20 @@ const FilterButtons = makeComponent("filter-buttons", function (props) {
   const {onAdd, onRemove} = props;
   const buttons = this.append(Row());
   buttons.append(button("-", {
-    attribute: {width: 30, height: 30},
+    style: {width: 30, height: 30},
     events: {click: onRemove},
   }));
   buttons.append(button("+", {
-    attribute: {width: 30, height: 30},
+    style: {width: 30, height: 30},
     events: {click: onAdd},
   }));
 });
 const Filters = makeComponent("filters", function(props) {
   const {state, changeState} = props;
-  const column = this.append(Column({attribute: {gap: 8}}));
+  const column = this.append(Column({style: {gap: 8}}));
   // existing filters
   for (let i = 0; i < state.filters.length; i++) {
-    const row = column.append(RowWrap({attribute: {gap: 8}}));
+    const row = column.append(RowWrap({style: {gap: 8}}));
     row.append(span("and", {style: i === 0 ? {visibility: "hidden"} : {}}));
     const orFilters = state.filters[i];
     for (let j = 0; j < orFilters.length; j++) {
@@ -227,9 +232,9 @@ const Root = makeComponent("root", function() {
     });
   }
   // filters
-  const column = this.append(Column({attribute: {width: "max", margin: 16, gap: 8}}));
+  const column = this.append(Column({style: {width: "100%", margin: 16, gap: 8}}));
   column.append(Filters({state, changeState}));
-  column.append(Hr({attribute: {width: "max"}}));
+  column.append(Hr({style: {width: "100%"}}));
   // table
   const filteredRows = state.rows.filter(row => (
     state.filters.every(orFilters => orFilters.some(filter => {
@@ -274,7 +279,7 @@ const Root = makeComponent("root", function() {
         label: "Rating",
         maxWidth: 72,
         render: (row, cell) => {
-          cell.append(span(`${row.rating}%`, {style: {textAlign: "center"}, attribute: {title: row.recentReviews, width: "max"}}));
+          cell.append(span(`${row.rating}%`, {style: {textAlign: "center", width: "100%"}, attribute: {title: row.recentReviews}}));
         },
       },
       {
@@ -283,15 +288,15 @@ const Root = makeComponent("root", function() {
         render: (row, cell) => {
           cell.append(hyperlink(row.name, {
             href: `https://store.steampowered.com/app/${row.id}`,
-            style: {lineHeight: "1.1"},
-            attribute: {target: "_blank", width: "240"},
+            style: {lineHeight: "1.1", width: 240},
+            attribute: {target: "_blank"},
           }));
         },
       },
       {
         label: "Tags",
         render: (row, cell) => {
-          const tagsWrap = cell.append(RowWrap({className: "tags", attribute: {gap: 4}}));
+          const tagsWrap = cell.append(RowWrap({className: "tags", style: {gap: 4}}));
           for (const tag of row.tags) {
             tagsWrap.append(span(tag, {className: "tag"}));
           }
