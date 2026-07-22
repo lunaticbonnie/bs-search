@@ -70,7 +70,26 @@ const FilterType = {
   FuzzyExclude: "FE",
   RatingGTE: "RG",
   RatingLTE: "RL",
+  NameInclude: "NI",
+  NameExclude: "NE",
 };
+function getFilterGroup(filterType) {
+  switch (filterType) {
+  case FilterType.FuzzyInclude:
+  case FilterType.FuzzyExclude:
+  case FilterType.NameInclude:
+  case FilterType.NameExclude: {
+    return "text";
+  } break;
+  case FilterType.RatingGTE:
+  case FilterType.RatingLTE: {
+    return "rating";
+  } break;
+  default: {
+    return "tag";
+  } break;
+  }
+}
 const t = {
   [FilterType.First20TagsInclude]: "First 20 tags include",
   [FilterType.First20TagsExclude]: "First 20 tags exclude",
@@ -80,18 +99,18 @@ const t = {
   [FilterType.FuzzyExclude]: "Fuzzy exclude",
   [FilterType.RatingGTE]: "Rating% >=",
   [FilterType.RatingLTE]: "Rating% <=",
+  [FilterType.NameInclude]: "Name includes",
+  [FilterType.NameExclude]: "Name excludes",
 };
-const FILTER_INPUT_STYLES = {style: {width: 146}, attribute: {name: "a"}};
-const FILTER_SELECT_STYLES = {
-  ...FILTER_INPUT_STYLES,
-  style: {...FILTER_INPUT_STYLES.style, paddingRight: 16},
-};
+const FILTER_INPUT_STYLES = {width: 146};
+const FILTER_SELECT_STYLES = {...FILTER_INPUT_STYLES, paddingRight: 16}
 const Filter = makeComponent("filter", function(props) {
   const {state, changeState, i, j} = props;
   const selectedFilter = state.filters[i][j] ?? {
     type: FilterType.First20TagsInclude,
     value: "",
   };
+  const selectedFilterGroup = getFilterGroup(selectedFilter.type);
   const setSelectedFilter = (diff) => {
     const newFilters = [...state.filters];
     
@@ -105,7 +124,7 @@ const Filter = makeComponent("filter", function(props) {
   const column = this.append(Column());
   // filter type
   const filterTypeSelect = column.append(Select({
-    ...FILTER_SELECT_STYLES,
+    style: FILTER_SELECT_STYLES,
     events: {input: (event) => setSelectedFilter({type: event.target.value})},
   }));
   for (const filterType of Object.values(FilterType)) {
@@ -117,21 +136,25 @@ const Filter = makeComponent("filter", function(props) {
   case FilterType.RatingGTE:
   case FilterType.RatingLTE: {
     filterValueInput = column.append(Input({
-      ...FILTER_INPUT_STYLES,
-      attribute: {...FILTER_INPUT_STYLES.attribute, type: "number", min: 0, max: 100, step: 1},
+      style: FILTER_INPUT_STYLES,
+      attribute: {name: selectedFilterGroup, type: "number", min: 0, max: 100, step: 1},
       events: {input: (event) => setSelectedFilter({value: event.target.value})},
     }));
   } break;
   case FilterType.FuzzyInclude:
-  case FilterType.FuzzyExclude: {
+  case FilterType.FuzzyExclude:
+  case FilterType.NameInclude:
+  case FilterType.NameExclude: {
     filterValueInput = column.append(Input({
-      ...FILTER_INPUT_STYLES,
+      style: FILTER_INPUT_STYLES,
+      attribute: {name: selectedFilterGroup},
       events: {input: (event) => setSelectedFilter({value: event.target.value})},
     }))
   } break;
   default: {
     filterValueInput = column.append(Select({
-      ...FILTER_SELECT_STYLES,
+      style: FILTER_SELECT_STYLES,
+      attribute: {name: selectedFilterGroup},
       events: {input: (event) => setSelectedFilter({value: event.target.value})},
     }));
     filterValueInput.append(Option(""));
@@ -218,7 +241,7 @@ function decodeCsv(value) {
 function parseData(csvText) {
   const csvLines = csvText.split(/\r?\n/).slice(1);
   const rows = [];
-  const tags_set = new Set();
+  const allTags_set = new Set();
   for (const line of csvLines) {
     const csvRow = line.split("; ");
     if (!line) continue;
@@ -231,11 +254,11 @@ function parseData(csvText) {
     let rating = +match?.[1];
     if (Number.isNaN(rating)) rating = 0;
     rows.push({id, name, rating, recentReviews, tags});
-    for (const tag of tags) tags_set.add(tag);
+    for (const tag of tags) allTags_set.add(tag);
   }
   rows.sort((a, b) => b.recentReviews - a.recentReviews);
-  const allTags = Array.from(tags_set).sort();
-  return {rows, allTags};
+  const allTags = Array.from(allTags_set).sort();
+  return {rows, allTags, allTags_set};
 }
 
 const DEFAULT_FILTERS = "v1,0,0,I20,";
@@ -257,15 +280,15 @@ function getFiltersFromQuery() {
   }
   return acc;
 };
-const startingFilters = getFiltersFromQuery();
 const Root = makeComponent("root", function() {
   const [state, changeState] = this.useState((diff, prevState) => {
     if (prevState == null) {
       return {
-        filters: startingFilters,
+        filters: getFiltersFromQuery(),
         dataLoading: undefined,
         rows: [],
         allTags: [],
+        allTags_set: new Set(),
       };
     }
     const newState = {...prevState, ...diff};
@@ -292,10 +315,18 @@ const Root = makeComponent("root", function() {
   column.append(Filters({state, changeState}));
   column.append(Hr({style: {width: "100%"}}));
   // table
-  const filteredRows = state.rows.filter(row => (
-    state.filters.every(orFilters => orFilters.some(filter => {
+  const {rows, allTags_set} = state;
+  const filters = state.filters.map(orFilters => orFilters.map(filter => {
+    const {type, value} = filter;
+    if (getFilterGroup(type) === "tag" && !allTags_set.has(value)) {
+      return {type, value: ""};
+    }
+    return filter;
+  }));
+  const filteredRows = rows.filter(row => (
+    filters.every(orFilters => orFilters.some(filter => {
       if (!filter?.value) return true;
-      const {type, value} = filter;
+      let {type, value} = filter;
       switch (type) {
       case FilterType.First20TagsInclude: {
         return row.tags.indexOf(value) !== -1;
@@ -322,6 +353,14 @@ const Root = makeComponent("root", function() {
       } break;
       case FilterType.RatingLTE: {
         return row.rating <= value;
+      } break;
+      case FilterType.NameInclude: {
+        const valueLowercase = value.toLowerCase();
+        return row.name.toLowerCase().includes(valueLowercase);
+      } break;
+      case FilterType.NameExclude: {
+        const valueLowercase = value.toLowerCase();
+        return !row.name.toLowerCase().includes(valueLowercase);
       } break;
       default: {
         console.error(`FilterType ${type} is not implemented!`);
