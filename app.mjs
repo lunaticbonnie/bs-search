@@ -198,7 +198,7 @@ const Filters = makeComponent("filters", function(props) {
     row.append(FilterButtons({
       onAdd: () => {
         const newFilters = [...state.filters];
-        const newOrFilters = [...orFilters, undefined];
+        const newOrFilters = [...orFilters, {type: FilterType.First20TagsInclude, value: ""}];
         newFilters.splice(i, 1, newOrFilters);
         changeState({filters: newFilters});
       },
