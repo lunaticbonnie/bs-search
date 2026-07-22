@@ -40,6 +40,26 @@ const RowWrap = makeComponent("row-wrap", function() {
   this.useNode(() => document.createElement("row-wrap"));
 });
 
+// query utils
+function getQuery() {
+  const query = window.location.search.slice(1);
+  const entries = query.split("&").map((v) => {
+    const i = v.indexOf("=");
+    if (i === -1) return [decodeURI(v), ""];
+    return [decodeURI(v.slice(0, i)), decodeURI(v.slice(i + 1))];
+  })
+  return Object.fromEntries(entries);
+}
+function setQuery(newQuery) {
+  const {origin, pathname} = window.location;
+  const currentUrl = origin + pathname;
+  const entries = Object.entries(newQuery).map(([k, v]) => {
+    return `${encodeURI(k)}=${encodeURI(v)}`;
+  });
+  const newUrl = entries.length ? `${currentUrl}?${entries.join("&")}` : currentUrl;
+  window.history.replaceState(null, "", newUrl);
+}
+
 // app
 const FilterType = {
   First20TagsInclude: "I20",
@@ -65,7 +85,7 @@ const FILTER_INPUT_STYLES = {style: {width: 146}, attribute: {name: "a"}};
 const FILTER_SELECT_STYLES = {
   ...FILTER_INPUT_STYLES,
   style: {...FILTER_INPUT_STYLES.style, paddingRight: 16},
-}
+};
 const Filter = makeComponent("filter", function(props) {
   const {state, changeState, i, j} = props;
   const selectedFilter = state.filters[i][j] ?? {
@@ -170,7 +190,7 @@ const Filters = makeComponent("filters", function(props) {
   // new AND
   const buttons = column.append(FilterButtons({
     style: {marginLeft: 110},
-    onAdd: () => changeState({filters: [...state.filters, [undefined]]}),
+    onAdd: () => changeState({filters: [...state.filters, [{type: FilterType.First20TagsInclude, value: ""}]]}),
     onRemove: () => changeState({filters: [...state.filters].slice(0, state.filters.length - 1)}),
   }));
 });
@@ -217,13 +237,49 @@ function parseData(csvText) {
   const allTags = Array.from(tags_set).sort();
   return {rows, allTags};
 }
+
+const DEFAULT_FILTERS = "v1,0,0,I20,";
+function getFiltersFromQuery() {
+  const acc = [];
+  const query = getQuery();
+  try {
+    const f = (query.f ?? DEFAULT_FILTERS).split(",");
+    const version = f[0];
+    for (let offset = 1; offset < f.length; offset += 4) {
+      const [i, j, type, value] = f.slice(offset, offset + 4);
+      while (i >= acc.length) acc.push([]);
+      const orFilters = acc[i];
+      while (j >= orFilters.length) orFilters.push(undefined);
+      orFilters[j] = {type, value};
+    }
+  } catch (error) {
+    console.error(error);
+  }
+  return acc;
+};
+const startingFilters = getFiltersFromQuery();
 const Root = makeComponent("root", function() {
-  // TODO: remember filters in query
-  const [state, changeState] = this.useState({
-    filters: [[undefined]],
-    dataLoading: undefined,
-    rows: [],
-    allTags: [],
+  const [state, changeState] = this.useState((diff, prevState) => {
+    if (prevState == null) {
+      return {
+        filters: startingFilters,
+        dataLoading: undefined,
+        rows: [],
+        allTags: [],
+      };
+    }
+    const newState = {...prevState, ...diff};
+    const newQuery = {f: "v1"};
+    for (let i = 0; i < newState.filters.length; i++) {
+      const orFilters = newState.filters[i];
+      for (let j = 0; j < orFilters.length; j++) {
+        const filter = orFilters[j];
+        newQuery.f += `,${i},${j},${filter?.type ?? ""},${filter?.value ?? ""}`;
+      }
+    }
+    if (newQuery.f === DEFAULT_FILTERS) delete newQuery.f;
+    setQuery(newQuery);
+    return newState;
   });
   if (state.dataLoading === undefined) {
     state.dataLoading = true;
