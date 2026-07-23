@@ -234,7 +234,7 @@ const Filters = makeComponent("filters", function(props) {
 });
 const PAGE_SIZE = 50;
 function getPageCount(state) {
-  return Math.ceil((state.rows?.length ?? 0) / PAGE_SIZE);
+  return Math.ceil((state.filteredRows?.length ?? 0) / PAGE_SIZE);
 }
 const Paging = makeComponent("paging", function(props) {
   const {state, changeState} = props;
@@ -354,24 +354,16 @@ const Root = makeComponent("root", function() {
       changeState({dataLoading: false, ...parseData(await response.text())});
     });
   }
-  // filters
-  const column = this.append(Column({style: {width: "100%", margin: 16, gap: 8}}));
-  const topRow = column.append(Row({style: {width: "100%"}}));
-  topRow.append(Filters({state, changeState}));
-  topRow.append(Paging({state, changeState}));
-  column.append(Hr({style: {width: "100%"}}));
-  // table
-  const {pageIndex, rows, allTags_set} = state;
-  const filters = state.filters.map(orFilters => orFilters.map(filter => {
+  const {rows, allTags_set} = state;
+  const mappedFilters = state.filters.map(orFilters => orFilters.map(filter => {
     const {type, value} = filter;
     if (getFilterGroup(type) === "tag" && !allTags_set.has(value)) {
       return {type, value: ""};
     }
     return filter;
   }));
-  const pagedRows = rows.slice(pageIndex*PAGE_SIZE, (pageIndex+1)*PAGE_SIZE);
-  const filteredRows = pagedRows.filter(row => (
-    filters.every(orFilters => orFilters.some(filter => {
+  state.filteredRows = rows.filter(row => (
+    mappedFilters.every(orFilters => orFilters.some(filter => {
       if (!filter?.value) return true;
       let {type, value} = filter;
       switch (type) {
@@ -415,6 +407,15 @@ const Root = makeComponent("root", function() {
       }
     }))
   ));
+  // filters
+  const column = this.append(Column({style: {width: "100%", margin: 16, gap: 8}}));
+  const topRow = column.append(Row({style: {width: "100%"}}));
+  topRow.append(Filters({state, changeState}));
+  topRow.append(Paging({state, changeState}));
+  column.append(Hr({style: {width: "100%"}}));
+  // table
+  const {pageIndex, filteredRows} = state;
+  const pagedRows = filteredRows.slice(pageIndex*PAGE_SIZE, (pageIndex+1)*PAGE_SIZE);
   column.append(Table({
     columns: [
       {
@@ -445,7 +446,7 @@ const Root = makeComponent("root", function() {
         },
       },
     ],
-    rows: filteredRows,
+    rows: pagedRows,
   }));
 });
 renderRoot(Root());
