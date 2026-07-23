@@ -244,14 +244,24 @@ const Paging = makeComponent("paging", function(props) {
 
   const row = this.append(RowWrap({style: {marginLeft: "auto", marginTop: "auto", gap: 4}}));
   row.append(span(`Page ${pageNumber} of ${pageCount}`));
+  const leftArrowDisabled = pageIndex <= 0;
   row.append(IconButton("chevron_right", {
-    disabled: pageIndex <= 0,
-    onClick: () => changeState({pageIndex: pageIndex - 1}),
+    disabled: leftArrowDisabled,
+    onClick: () => {
+      if (event.shiftKey) changeState({pageIndex: 0});
+      else changeState({pageIndex: pageIndex - 1});
+    },
     style: {transform: "rotate(180deg)", overflow: "hidden"},
+    attribute: {title: leftArrowDisabled ? "": "Hold shift to go to the start"},
   }));
+  const rightArrowDisabled = pageNumber >= pageCount;
   row.append(IconButton("chevron_right", {
-    disabled: pageNumber >= pageCount,
-    onClick: () => changeState({pageIndex: pageIndex + 1}),
+    disabled: rightArrowDisabled,
+    onClick: (event) => {
+      if (event.shiftKey) changeState({pageIndex: pageCount - 1});
+      else changeState({pageIndex: pageIndex + 1});
+    },
+    attribute: {title: rightArrowDisabled ? "": "Hold shift to go to the end"},
   }));
 });
 const Table = makeComponent("table", function(props) {
