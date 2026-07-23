@@ -40,6 +40,21 @@ const RowWrap = makeComponent("row-wrap", function() {
   this.useNode(() => document.createElement("row-wrap"));
 });
 
+// google icons (https://fonts.google.com/icons)
+const Icon = makeComponent("icon", function (type="", props) {
+  const node = this.useNode(() => document.createElement("span"))
+  this.baseProps.className = ["material-symbols-outlined", ...(props?.className ?? [])];
+  node.innerText = type;
+});
+const IconButton = makeComponent("icon-button", function (type, props={}) {
+  const {disabled, onClick, ...extra} = props;
+  this.append(Icon(type, {
+    ...extra,
+    attribute: {...extra.attribute, dataDisabled: disabled},
+    events: {click: (event) => !disabled && onClick(event), ...extra.events},
+  }));
+});
+
 // query utils
 function getQuery() {
   const query = window.location.search.slice(1);
@@ -119,7 +134,7 @@ const Filter = makeComponent("filter", function(props) {
     newOrFilters.splice(j, 1, newFilter);
 
     newFilters.splice(i, 1, newOrFilters);
-    changeState({filters: newFilters});
+    changeState({filters: newFilters, pageIndex: 0});
   }
   const column = this.append(Column());
   // filter type
@@ -217,6 +232,28 @@ const Filters = makeComponent("filters", function(props) {
     onRemove: () => changeState({filters: [...state.filters].slice(0, state.filters.length - 1)}),
   }));
 });
+const PAGE_SIZE = 50;
+function getPageCount(state) {
+  return Math.ceil((state.rows?.length ?? 0) / PAGE_SIZE);
+}
+const Paging = makeComponent("paging", function(props) {
+  const {state, changeState} = props;
+  const {pageIndex} = state;
+  const pageNumber = pageIndex + 1;
+  const pageCount = getPageCount(state);
+
+  const row = this.append(RowWrap({style: {marginLeft: "auto", marginTop: "auto", gap: 4}}));
+  row.append(span(`Page ${pageNumber} of ${pageCount}`));
+  row.append(IconButton("chevron_right", {
+    disabled: pageIndex <= 0,
+    onClick: () => changeState({pageIndex: pageIndex - 1}),
+    style: {transform: "rotate(180deg)", overflow: "hidden"},
+  }));
+  row.append(IconButton("chevron_right", {
+    disabled: pageNumber >= pageCount,
+    onClick: () => changeState({pageIndex: pageIndex + 1}),
+  }));
+});
 const Table = makeComponent("table", function(props) {
   const {rows, columns} = props;
   const table = this.append(Column());
@@ -262,29 +299,35 @@ function parseData(csvText) {
 }
 
 const DEFAULT_FILTERS = "v1,0,0,I20,";
-function getFiltersFromQuery() {
-  const acc = [];
+function getStateFromQuery() {
+  const filters = [];
   const query = getQuery();
+  let pageIndex = 0;
   try {
     const f = (query.f ?? DEFAULT_FILTERS).split(",");
     const version = f[0];
     for (let offset = 1; offset < f.length; offset += 4) {
       const [i, j, type, value] = f.slice(offset, offset + 4);
-      while (i >= acc.length) acc.push([]);
-      const orFilters = acc[i];
+      while (i >= filters.length) filters.push([]);
+      const orFilters = filters[i];
       while (j >= orFilters.length) orFilters.push(undefined);
       orFilters[j] = {type, value};
     }
   } catch (error) {
     console.error(error);
   }
-  return acc;
+  try {
+    if (query.p) pageIndex = Math.max(0, (+query.p) - 1);
+  } catch (error) {
+    console.error(error);
+  }
+  return {filters, pageIndex};
 };
 const Root = makeComponent("root", function() {
   const [state, changeState] = this.useState((diff, prevState) => {
     if (prevState == null) {
       return {
-        filters: getFiltersFromQuery(),
+        ...getStateFromQuery(),
         dataLoading: undefined,
         rows: [],
         allTags: [],
@@ -301,6 +344,7 @@ const Root = makeComponent("root", function() {
       }
     }
     if (newQuery.f === DEFAULT_FILTERS) delete newQuery.f;
+    if (newState.pageIndex > 0) newQuery.p = String(newState.pageIndex + 1);
     setQuery(newQuery);
     return newState;
   });
@@ -312,10 +356,12 @@ const Root = makeComponent("root", function() {
   }
   // filters
   const column = this.append(Column({style: {width: "100%", margin: 16, gap: 8}}));
-  column.append(Filters({state, changeState}));
+  const topRow = column.append(Row({style: {width: "100%"}}));
+  topRow.append(Filters({state, changeState}));
+  topRow.append(Paging({state, changeState}));
   column.append(Hr({style: {width: "100%"}}));
   // table
-  const {rows, allTags_set} = state;
+  const {pageIndex, rows, allTags_set} = state;
   const filters = state.filters.map(orFilters => orFilters.map(filter => {
     const {type, value} = filter;
     if (getFilterGroup(type) === "tag" && !allTags_set.has(value)) {
@@ -323,7 +369,8 @@ const Root = makeComponent("root", function() {
     }
     return filter;
   }));
-  const filteredRows = rows.filter(row => (
+  const pagedRows = rows.slice(pageIndex*PAGE_SIZE, (pageIndex+1)*PAGE_SIZE);
+  const filteredRows = pagedRows.filter(row => (
     filters.every(orFilters => orFilters.some(filter => {
       if (!filter?.value) return true;
       let {type, value} = filter;

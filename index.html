@@ -1,12 +1,35 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=chevron_right" />
   <link rel="stylesheet" href="qiss.css" />
   <style>
+    html {
+      overflow-y: scroll;
+    }
     body {
       background: #272831;
       color: white;
+      font-family: "Motiva Sans", sans-serif;
+      font-size: 16px;
     }
+    .icon {
+      user-select: none;
+    }
+    .icon-button {
+      color: #c6d4df;
+      cursor: default;
+    }
+    .icon-button[data-disabled="false"] {
+      cursor: pointer;
+    }
+    .icon-button[data-disabled="false"]:hover {
+      color: white;
+    }
+    hr {
+      border-color: #c6d4df;
+    }
+
     a {
       color: #66C0F4;
       text-decoration: none;
@@ -14,10 +37,6 @@
     .table {
       padding: 4px;
       gap: 6px;
-      background: #272831;
-      color: white;
-      font-family: "Motiva Sans", sans-serif;
-      font-size: 16px;
     }
     .table-header {
       font-size: 20px;
