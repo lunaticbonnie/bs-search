@@ -83,6 +83,8 @@ const FilterType = {
   First5TagsExclude: "E5",
   FuzzyInclude: "FI",
   FuzzyExclude: "FE",
+  Fuzzy5Include: "FI5",
+  Fuzzy5Exclude: "FE5",
   RatingGTE: "RG",
   RatingLTE: "RL",
   NameInclude: "NI",
@@ -92,6 +94,8 @@ function getFilterGroup(filterType) {
   switch (filterType) {
   case FilterType.FuzzyInclude:
   case FilterType.FuzzyExclude:
+  case FilterType.Fuzzy5Include:
+  case FilterType.Fuzzy5Exclude:
   case FilterType.NameInclude:
   case FilterType.NameExclude: {
     return "text";
@@ -110,8 +114,10 @@ const t = {
   [FilterType.First20TagsExclude]: "First 20 tags exclude",
   [FilterType.First5TagsInclude]: "First 5 tags include",
   [FilterType.First5TagsExclude]: "First 5 tags exclude",
-  [FilterType.FuzzyInclude]: "Fuzzy include",
-  [FilterType.FuzzyExclude]: "Fuzzy exclude",
+  [FilterType.FuzzyInclude]: "Fuzzy 20 include",
+  [FilterType.FuzzyExclude]: "Fuzzy 20 exclude",
+  [FilterType.Fuzzy5Include]: "Fuzzy 5 include",
+  [FilterType.Fuzzy5Exclude]: "Fuzzy 5 exclude",
   [FilterType.RatingGTE]: "Rating% >=",
   [FilterType.RatingLTE]: "Rating% <=",
   [FilterType.NameInclude]: "Name includes",
@@ -147,19 +153,15 @@ const Filter = makeComponent("filter", function(props) {
   }
   // filter value
   let filterValueInput;
-  switch (selectedFilter.type) {
-  case FilterType.RatingGTE:
-  case FilterType.RatingLTE: {
+  switch (selectedFilterGroup) {
+  case "rating": {
     filterValueInput = column.append(Input({
       style: FILTER_INPUT_STYLES,
       attribute: {name: selectedFilterGroup, type: "number", min: 0, max: 100, step: 1},
       events: {input: (event) => setSelectedFilter({value: event.target.value})},
     }));
   } break;
-  case FilterType.FuzzyInclude:
-  case FilterType.FuzzyExclude:
-  case FilterType.NameInclude:
-  case FilterType.NameExclude: {
+  case "text": {
     filterValueInput = column.append(Input({
       style: FILTER_INPUT_STYLES,
       attribute: {name: selectedFilterGroup},
@@ -367,8 +369,17 @@ const Root = makeComponent("root", function() {
   const {rows, allTags_set} = state;
   const mappedFilters = state.filters.map(orFilters => orFilters.map(filter => {
     const {type, value} = filter;
-    if (getFilterGroup(type) === "tag" && !allTags_set.has(value)) {
-      return {type, value: ""};
+    const filterGroup = getFilterGroup(type);
+    switch (filterGroup) {
+    case "tag": {
+      if (!allTags_set.has(value)) return {type, value: ""};
+    } break;
+    case "rating": {
+      if (Number.isNaN(+value)) return {type, value: 0}
+    } break;
+    default: {
+      // noop
+    } break;
     }
     return filter;
   }));
@@ -396,6 +407,14 @@ const Root = makeComponent("root", function() {
       case FilterType.FuzzyExclude: {
         const valueLowercase = value.toLowerCase();
         return row.tags.every(tag => !tag.toLowerCase().includes(valueLowercase));
+      } break;
+      case FilterType.Fuzzy5Include: {
+        const valueLowercase = value.toLowerCase();
+        return row.tags.slice(0, 5).some(tag => tag.toLowerCase().includes(valueLowercase));
+      } break;
+      case FilterType.Fuzzy5Exclude: {
+        const valueLowercase = value.toLowerCase();
+        return row.tags.slice(0, 5).every(tag => !tag.toLowerCase().includes(valueLowercase));
       } break;
       case FilterType.RatingGTE: {
         return row.rating >= value;
