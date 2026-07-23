@@ -375,7 +375,7 @@ const Root = makeComponent("root", function() {
       if (!allTags_set.has(value)) return {type, value: ""};
     } break;
     case "rating": {
-      if (Number.isNaN(+value)) return {type, value: 0}
+      if (Number.isNaN(+value)) return {type, value: 0};
     } break;
     default: {
       // noop
