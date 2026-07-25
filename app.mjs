@@ -501,13 +501,13 @@ const Root = makeComponent("root", function() {
         state.filteredRows.sort((a, b) => {
           const a_key = a.rating;
           const b_key = b.rating;
-          return (a_key < b_key) - (a_key > b_key);
+          return (a_key > b_key) - (a_key < b_key);
         });
       } else {
         state.filteredRows.sort((a, b) => {
           const a_key = a.rating;
           const b_key = b.rating;
-          return (a_key > b_key) - (a_key < b_key);
+          return (a_key < b_key) - (a_key > b_key);
         });
       }
     } break;
@@ -516,13 +516,13 @@ const Root = makeComponent("root", function() {
         state.filteredRows.sort((a, b) => {
           const a_key = a.name;
           const b_key = b.name;
-          return (a_key < b_key) - (a_key > b_key);
+          return (a_key > b_key) - (a_key < b_key);
         });
       } else {
         state.filteredRows.sort((a, b) => {
           const a_key = a.name;
           const b_key = b.name;
-          return (a_key > b_key) - (a_key < b_key);
+          return (a_key < b_key) - (a_key > b_key);
         });
       }
     } break;
