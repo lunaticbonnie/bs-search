@@ -87,6 +87,8 @@ const FilterType = {
   Fuzzy5Exclude: "FE5",
   RatingGTE: "RG",
   RatingLTE: "RL",
+  ReviewCountGTE: "RCG",
+  ReviewCountLTE: "RCL",
   NameInclude: "NI",
   NameExclude: "NE",
   CSVNameInclude: "CNI",
@@ -108,6 +110,10 @@ function getFilterGroup(filterType) {
   case FilterType.RatingLTE: {
     return "rating";
   } break;
+  case FilterType.ReviewCountGTE:
+  case FilterType.ReviewCountLTE: {
+    return "count";
+  } break;
   default: {
     return "tag";
   } break;
@@ -124,6 +130,8 @@ const t = {
   [FilterType.Fuzzy5Exclude]: "Fuzzy 5 exclude",
   [FilterType.RatingGTE]: "Rating% >=",
   [FilterType.RatingLTE]: "Rating% <=",
+  [FilterType.ReviewCountGTE]: "Review count >=",
+  [FilterType.ReviewCountLTE]: "Review count <=",
   [FilterType.NameInclude]: "Name includes",
   [FilterType.NameExclude]: "Name excludes",
   [FilterType.CSVNameInclude]: "CSV name includes"
@@ -165,6 +173,13 @@ const Filter = makeComponent("filter", function(props) {
     filterValueInput = column.append(Input({
       style: FILTER_INPUT_STYLES,
       attribute: {name: selectedFilterGroup, type: "number", min: 0, max: 100, step: 1},
+      events: {input: (event) => setSelectedFilter({value: event.target.value})},
+    }));
+  } break;
+  case "count": {
+    filterValueInput = column.append(Input({
+      style: FILTER_INPUT_STYLES,
+      attribute: {name: selectedFilterGroup, type: "number", step: 1},
       events: {input: (event) => setSelectedFilter({value: event.target.value})},
     }));
   } break;
@@ -331,13 +346,13 @@ function parseData(csvText) {
       continue;
     }
     const [id, name, recentReviews, ...tags] = csvRow.map(decodeCsv);
-    const match = recentReviews.match(/(\d+)%.*? are positive/)
-    let rating = +match?.[1];
+    let rating = +recentReviews.match(/(\d+)%.*? are positive/)?.[1];
     if (Number.isNaN(rating)) rating = 0;
-    rows.push({id, name, rating, recentReviews, tags});
+    let reviews = +recentReviews.match(/(\d+) user reviews.*? are positive/)?.[1];
+    if (Number.isNaN(reviews)) reviews = 0;
+    rows.push({id, name, rating, reviews, recentReviews, tags});
     for (const tag of tags) allTags_set.add(tag);
   }
-  rows.sort((a, b) => b.recentReviews - a.recentReviews);
   const allTags = Array.from(allTags_set).sort();
   return {rows, allTags, allTags_set};
 }
@@ -425,7 +440,8 @@ const Root = makeComponent("root", function() {
     case "tag": {
       if (!allTags_set.has(value)) return {type, value: ""};
     } break;
-    case "rating": {
+    case "rating":
+    case "count": {
       if (Number.isNaN(+value)) return {type, value: 0};
     } break;
     default: {
@@ -473,6 +489,12 @@ const Root = makeComponent("root", function() {
       case FilterType.RatingLTE: {
         return row.rating <= value;
       } break;
+      case FilterType.ReviewCountGTE: {
+        return row.reviews >= value;
+      } break;
+      case FilterType.ReviewCountLTE: {
+        return row.reviews <= value;
+      } break;
       case FilterType.NameInclude: {
         const valueLowercase = value.toLowerCase();
         return row.name.toLowerCase().includes(valueLowercase);
@@ -511,6 +533,21 @@ const Root = makeComponent("root", function() {
         });
       }
     } break;
+    case "C": {
+      if (ascending) {
+        state.filteredRows.sort((a, b) => {
+          const a_key = a.reviews;
+          const b_key = b.reviews;
+          return (a_key > b_key) - (a_key < b_key);
+        });
+      } else {
+        state.filteredRows.sort((a, b) => {
+          const a_key = a.reviews;
+          const b_key = b.reviews;
+          return (a_key < b_key) - (a_key > b_key);
+        });
+      }
+    } break;
     case "N": {
       if (ascending) {
         state.filteredRows.sort((a, b) => {
@@ -545,9 +582,32 @@ const Root = makeComponent("root", function() {
       {
         id: "R",
         label: "Rating",
-        maxWidth: 84,
+        maxWidth: 76,
         render: (row, cell) => {
           cell.append(span(`${row.rating}%`, {style: {textAlign: "center", width: "100%"}, attribute: {title: row.recentReviews}}));
+        },
+      },
+      {
+        id: "C",
+        label: "Count",
+        maxWidth: 76,
+        render: (row, cell) => {
+          let {reviews} = row;
+          let unit = "";
+          if (reviews >= 1000) {
+            reviews /= 1000;
+            unit = "K";
+          }
+          if (reviews >= 1000) {
+            reviews /= 1000;
+            unit = "M";
+          }
+          if (reviews >= 1000) {
+            reviews /= 1000;
+            unit = "B";
+          }
+          reviews = Math.round(reviews);
+          cell.append(span(`${reviews}${unit}`, {style: {textAlign: "center", width: "100%"}, attribute: {title: row.recentReviews}}));
         },
       },
       {
