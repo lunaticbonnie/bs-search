@@ -89,6 +89,7 @@ const FilterType = {
   RatingLTE: "RL",
   NameInclude: "NI",
   NameExclude: "NE",
+  CSVNameInclude: "CNI",
 };
 function getFilterGroup(filterType) {
   switch (filterType) {
@@ -99,6 +100,9 @@ function getFilterGroup(filterType) {
   case FilterType.NameInclude:
   case FilterType.NameExclude: {
     return "text";
+  } break;
+  case FilterType.CSVNameInclude: {
+    return "csv";
   } break;
   case FilterType.RatingGTE:
   case FilterType.RatingLTE: {
@@ -122,8 +126,10 @@ const t = {
   [FilterType.RatingLTE]: "Rating% <=",
   [FilterType.NameInclude]: "Name includes",
   [FilterType.NameExclude]: "Name excludes",
+  [FilterType.CSVNameInclude]: "CSV name includes"
 };
 const FILTER_INPUT_STYLES = {width: 146};
+const FILTER_CSV_STYLES = {width: 500};
 const FILTER_SELECT_STYLES = {...FILTER_INPUT_STYLES, paddingRight: 16}
 const Filter = makeComponent("filter", function(props) {
   const {state, changeState, i, j} = props;
@@ -146,6 +152,7 @@ const Filter = makeComponent("filter", function(props) {
   // filter type
   const filterTypeSelect = column.append(Select({
     style: FILTER_SELECT_STYLES,
+    attribute: {name: "type"},
     events: {input: (event) => setSelectedFilter({type: event.target.value})},
   }));
   for (const filterType of Object.values(FilterType)) {
@@ -166,7 +173,14 @@ const Filter = makeComponent("filter", function(props) {
       style: FILTER_INPUT_STYLES,
       attribute: {name: selectedFilterGroup},
       events: {input: (event) => setSelectedFilter({value: event.target.value})},
-    }))
+    }));
+  } break;
+  case "csv": {
+    filterValueInput = column.append(Input({
+      style: FILTER_CSV_STYLES,
+      attribute: {name: selectedFilterGroup},
+      events: {input: (event) => setSelectedFilter({value: event.target.value})},
+    }));
   } break;
   default: {
     filterValueInput = column.append(Select({
@@ -431,6 +445,11 @@ const Root = makeComponent("root", function() {
       case FilterType.NameInclude: {
         const valueLowercase = value.toLowerCase();
         return row.name.toLowerCase().includes(valueLowercase);
+      } break;
+      case FilterType.CSVNameInclude: {
+        const rowNameLowercase = row.name.toLowerCase();
+        const csvNames = value.toLowerCase().split(",").map(v => v.trim()).filter(v => v);
+        return csvNames.some(v => rowNameLowercase.includes(v));
       } break;
       case FilterType.NameExclude: {
         const valueLowercase = value.toLowerCase();
