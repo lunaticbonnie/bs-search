@@ -405,7 +405,7 @@ const Root = makeComponent("root", function() {
       changeState({dataLoading: false, ...parseData(await response.text())});
     });
   }
-  const {rows, allTags_set} = state;
+  const {rows, allTags_set, sort} = state;
   const mappedFilters = state.filters.map(orFilters => orFilters.map(filter => {
     const {type, value} = filter;
     const filterGroup = getFilterGroup(type);
@@ -480,6 +480,45 @@ const Root = makeComponent("root", function() {
       }
     }))
   ));
+  if (sort != null) {
+    const {id, ascending} = sort;
+    // NOTE: optimization - manually pull out loop invariants
+    switch (id) {
+    case "R": {
+      if (ascending) {
+        state.filteredRows.sort((a, b) => {
+          const a_key = a.rating;
+          const b_key = b.rating;
+          return (a_key > b_key) - (a_key < b_key);
+        });
+      } else {
+        state.filteredRows.sort((a, b) => {
+          const a_key = a.rating;
+          const b_key = b.rating;
+          return (a_key < b_key) - (a_key > b_key);
+        });
+      }
+    } break;
+    case "N": {
+      if (ascending) {
+        state.filteredRows.sort((a, b) => {
+          const a_key = a.name;
+          const b_key = b.name;
+          return (a_key > b_key) - (a_key < b_key);
+        });
+      } else {
+        state.filteredRows.sort((a, b) => {
+          const a_key = a.name;
+          const b_key = b.name;
+          return (a_key < b_key) - (a_key > b_key);
+        });
+      }
+    } break;
+    default: {
+      console.error(`Invalid sort id: '${id}'`);
+    };
+    }
+  }
   // filters
   const column = this.append(Column({style: {width: "100%", margin: 16, gap: 8}}));
   const topRow = column.append(Row({style: {width: "100%"}}));
@@ -487,7 +526,7 @@ const Root = makeComponent("root", function() {
   topRow.append(Paging({state, changeState}));
   column.append(Hr({style: {width: "100%"}}));
   // table
-  const {pageIndex, filteredRows, sort} = state;
+  const {pageIndex, filteredRows} = state;
   const pagedRows = filteredRows.slice(pageIndex*PAGE_SIZE, (pageIndex+1)*PAGE_SIZE);
   column.append(Table({
     columns: [
@@ -527,6 +566,5 @@ const Root = makeComponent("root", function() {
     sort,
     onChangeSort: (sort) => changeState({sort}),
   }));
-  console.log("sort", state.sort);
 });
 renderRoot(Root());
