@@ -311,6 +311,12 @@ function parseData(csvText) {
 }
 
 const DEFAULT_FILTERS = "v1,0,0,I20,";
+function encodeURIPart(v) {
+  return v.replace(/[&,]/g, (m) => m[0] === "&" ? "%26" : "%2C");
+}
+function decodeURIPart(v) {
+  return decodeURIComponent(v);
+}
 function getStateFromQuery() {
   const filters = [];
   const query = getQuery();
@@ -323,7 +329,7 @@ function getStateFromQuery() {
       while (i >= filters.length) filters.push([]);
       const orFilters = filters[i];
       while (j >= orFilters.length) orFilters.push(undefined);
-      orFilters[j] = {type, value};
+      orFilters[j] = {type, value: decodeURIPart(value)};
     }
   } catch (error) {
     console.error(error);
@@ -352,7 +358,7 @@ const Root = makeComponent("root", function() {
       const orFilters = newState.filters[i];
       for (let j = 0; j < orFilters.length; j++) {
         const filter = orFilters[j];
-        newQuery.f += `,${i},${j},${filter?.type ?? ""},${filter?.value ?? ""}`;
+        newQuery.f += `,${i},${j},${filter?.type ?? ""},${encodeURIPart((filter?.value ?? ""))}`;
       }
     }
     if (newQuery.f === DEFAULT_FILTERS) delete newQuery.f;
