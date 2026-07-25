@@ -350,9 +350,9 @@ function decodeURIPart(v) {
   return decodeURIComponent(v);
 }
 function getStateFromQuery() {
-  const filters = [];
   const query = getQuery();
-  let pageIndex = 0;
+  // get `filters`
+  const filters = [];
   try {
     const f = (query.f ?? DEFAULT_FILTERS).split(",");
     const version = f[0];
@@ -366,13 +366,24 @@ function getStateFromQuery() {
   } catch (error) {
     console.error(error);
   }
+  // get `pageIndex`
+  let pageIndex = 0;
   try {
     if (query.p) pageIndex = Math.max(0, (+query.p) - 1);
   } catch (error) {
     console.error(error);
   }
-  // TODO: sort in query
-  return {filters, pageIndex, sort: null};
+  // get `sort`
+  let sort = null;
+  try {
+    if (query.s) {
+      const [id, ascending] = query.s.split(",");
+      sort = {id, ascending: ascending !== "d"};
+    }
+  } catch (error) {
+    console.error(error);
+  }
+  return {filters, pageIndex, sort};
 };
 const Root = makeComponent("root", function() {
   const [state, changeState] = this.useState((diff, prevState) => {
@@ -395,6 +406,7 @@ const Root = makeComponent("root", function() {
       }
     }
     if (newQuery.f === DEFAULT_FILTERS) delete newQuery.f;
+    if (newState.sort) newQuery.s = `${newState.sort.id},${newState.sort.ascending ? "a" : "d"}`;
     if (newState.pageIndex > 0) newQuery.p = String(newState.pageIndex + 1);
     setQuery(newQuery);
     return newState;
@@ -489,13 +501,13 @@ const Root = makeComponent("root", function() {
         state.filteredRows.sort((a, b) => {
           const a_key = a.rating;
           const b_key = b.rating;
-          return (a_key > b_key) - (a_key < b_key);
+          return (a_key < b_key) - (a_key > b_key);
         });
       } else {
         state.filteredRows.sort((a, b) => {
           const a_key = a.rating;
           const b_key = b.rating;
-          return (a_key < b_key) - (a_key > b_key);
+          return (a_key > b_key) - (a_key < b_key);
         });
       }
     } break;
@@ -504,13 +516,13 @@ const Root = makeComponent("root", function() {
         state.filteredRows.sort((a, b) => {
           const a_key = a.name;
           const b_key = b.name;
-          return (a_key > b_key) - (a_key < b_key);
+          return (a_key < b_key) - (a_key > b_key);
         });
       } else {
         state.filteredRows.sort((a, b) => {
           const a_key = a.name;
           const b_key = b.name;
-          return (a_key < b_key) - (a_key > b_key);
+          return (a_key > b_key) - (a_key < b_key);
         });
       }
     } break;
