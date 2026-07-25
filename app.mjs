@@ -606,7 +606,7 @@ const Root = makeComponent("root", function() {
       {
         id: "R",
         label: "Rating",
-        maxWidth: 76,
+        maxWidth: showCount ? 76 : 80,
         render: (row, cell) => {
           cell.append(span(`${row.rating}%`, {style: {textAlign: "center", width: "100%"}, attribute: {title: row.recentReviews}}));
         },
