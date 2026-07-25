@@ -280,12 +280,30 @@ const Paging = makeComponent("paging", function(props) {
     attribute: {title: rightArrowDisabled ? "": "Hold shift to go to the end"},
   }));
 });
+function getNextSort(sort, id) {
+  if (sort != null && sort.id === id) {
+    return !sort.ascending ? {id, ascending: true} : null;
+  }
+  return {id, ascending: false};
+}
 const Table = makeComponent("table", function(props) {
-  const {rows, columns} = props;
+  const {rows, columns, sort, onChangeSort} = props;
   const table = this.append(Column());
-  const tableHeader = table.append(RowSplit({className: "table-header table-row"}));
+  const tableHeaderRow = table.append(RowSplit({className: "table-header-row table-row"}));
   for (const column of columns) {
-    tableHeader.append(span(column.label, {style: {maxWidth: column.maxWidth}}));
+    const {id, maxWidth, label, disableSorting} = column;
+    let dataSort = "";
+    if (sort != null && sort.id === id) {
+      dataSort = sort.ascending ? "asc" : "desc";
+    }
+    const tableHeader = tableHeaderRow.append(RowWrap({
+      style: {maxWidth: maxWidth},
+      className: "table-header",
+      attribute: {dataSortable: !disableSorting, dataSort},
+      events: !disableSorting ? {click: () => onChangeSort(getNextSort(sort, id))} : {},
+    }));
+    tableHeader.append(span(label));
+    if (!disableSorting) tableHeader.append(Icon("arrow_downward", {className: ["table-sort-arrow"]}));
   }
   for (const row of rows) {
     const tableRow = table.append(RowSplit({className: "table-data table-row"}));
@@ -353,7 +371,8 @@ function getStateFromQuery() {
   } catch (error) {
     console.error(error);
   }
-  return {filters, pageIndex};
+  // TODO: sort in query
+  return {filters, pageIndex, sort: null};
 };
 const Root = makeComponent("root", function() {
   const [state, changeState] = this.useState((diff, prevState) => {
@@ -468,18 +487,20 @@ const Root = makeComponent("root", function() {
   topRow.append(Paging({state, changeState}));
   column.append(Hr({style: {width: "100%"}}));
   // table
-  const {pageIndex, filteredRows} = state;
+  const {pageIndex, filteredRows, sort} = state;
   const pagedRows = filteredRows.slice(pageIndex*PAGE_SIZE, (pageIndex+1)*PAGE_SIZE);
   column.append(Table({
     columns: [
       {
+        id: "R",
         label: "Rating",
-        maxWidth: 72,
+        maxWidth: 84,
         render: (row, cell) => {
           cell.append(span(`${row.rating}%`, {style: {textAlign: "center", width: "100%"}, attribute: {title: row.recentReviews}}));
         },
       },
       {
+        id: "N",
         label: "Name",
         maxWidth: 240,
         render: (row, cell) => {
@@ -491,6 +512,7 @@ const Root = makeComponent("root", function() {
         },
       },
       {
+        id: "T",
         label: "Tags",
         render: (row, cell) => {
           const tagsWrap = cell.append(RowWrap({className: "tags", style: {gap: 4}}));
@@ -498,9 +520,13 @@ const Root = makeComponent("root", function() {
             tagsWrap.append(span(tag, {className: "tag"}));
           }
         },
+        disableSorting: true,
       },
     ],
     rows: pagedRows,
+    sort,
+    onChangeSort: (sort) => changeState({sort}),
   }));
+  console.log("sort", state.sort);
 });
 renderRoot(Root());

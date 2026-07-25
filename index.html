@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=chevron_right" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=arrow_downward,chevron_right" />
   <link rel="stylesheet" href="qiss.css" />
   <style>
     html {
@@ -35,14 +35,35 @@
       text-decoration: none;
     }
     .table {
+      width: 100%;
       padding: 4px;
       gap: 6px;
     }
-    .table-header {
-      font-size: 20px;
-    }
     .table-row {
       width: 100%;
+    }
+    .table-header-row {
+      font-size: 20px;
+    }
+    .table-header[data-sortable="true"] {
+      cursor: pointer;
+      user-select: none;
+    }
+    .table-sort-arrow {
+      margin-left: 2px;
+      font-size: 18px;
+      opacity: 0;
+      transition: transform 100ms;
+    }
+    .table-header[data-sortable="true"]:hover .table-sort-arrow {
+      opacity: .5;
+    }
+    .table-header[data-sort="desc"] .table-sort-arrow {
+      opacity: 1 !important;
+    }
+    .table-header[data-sort="asc"] .table-sort-arrow {
+      opacity: 1 !important;
+      transform: rotate(180deg);
     }
     .tags {
       padding: 2px;
