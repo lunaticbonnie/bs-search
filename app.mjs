@@ -16,6 +16,18 @@ const Option = makeComponent("option", function(value, label, props) {
     z.innerText = value;
   }
 });
+const Label = makeComponent("label", function() {
+  this.useNode(() => document.createElement("label"));
+});
+const Checkbox = makeComponent("checkbox", function (props) {
+  const {id, label, checked, inputEvents} = props;
+  const labelWrapper = this.append(Label({attribute: {"for": id}}));
+  labelWrapper.append(Input({
+    attribute: {type: "checkbox", id, ...(checked ? {checked: ""} : {})},
+    events: inputEvents,
+  }));
+  labelWrapper.append(span(label));
+});
 const Hr = makeComponent("hr", function() {
   this.useNode(() => document.createElement("hr"));
 });
@@ -69,7 +81,7 @@ function setQuery(newQuery) {
   const {origin, pathname} = window.location;
   const currentUrl = origin + pathname;
   const entries = Object.entries(newQuery).map(([k, v]) => {
-    return `${encodeURI(k)}=${encodeURI(v)}`;
+    return (v === "") ? encodeURI(k) : `${encodeURI(k)}=${encodeURI(v)}`;
   });
   const newUrl = entries.length ? `${currentUrl}?${entries.join("&")}` : currentUrl;
   window.history.replaceState(null, "", newUrl);
@@ -273,7 +285,7 @@ const Paging = makeComponent("paging", function(props) {
   const pageNumber = pageIndex + 1;
   const pageCount = getPageCount(state);
 
-  const row = this.append(RowWrap({style: {marginLeft: "auto", marginTop: "auto", gap: 4}}));
+  const row = this.append(RowWrap({style: {marginTop: "auto", gap: 4}}));
   row.append(span(`Page ${pageNumber} of ${pageCount}`));
   const leftArrowDisabled = pageIndex <= 0;
   row.append(IconButton("chevron_right", {
@@ -312,6 +324,7 @@ const Table = makeComponent("table", function(props) {
       dataSort = sort.ascending ? "asc" : "desc";
     }
     const tableHeader = tableHeaderRow.append(RowWrap({
+      key: id,
       style: {maxWidth: maxWidth},
       className: "table-header",
       attribute: {dataSortable: !disableSorting, dataSort},
@@ -323,7 +336,7 @@ const Table = makeComponent("table", function(props) {
   for (const row of rows) {
     const tableRow = table.append(RowSplit({className: "table-data table-row"}));
     for (const column of columns) {
-      const cell = tableRow.append(Column({style: {maxWidth: column.maxWidth}}));
+      const cell = tableRow.append(Column({key: column.id, style: {maxWidth: column.maxWidth}}));
       column.render(row, cell);
     }
   }
@@ -381,13 +394,6 @@ function getStateFromQuery() {
   } catch (error) {
     console.error(error);
   }
-  // get `pageIndex`
-  let pageIndex = 0;
-  try {
-    if (query.p) pageIndex = Math.max(0, (+query.p) - 1);
-  } catch (error) {
-    console.error(error);
-  }
   // get `sort`
   let sort = null;
   try {
@@ -398,7 +404,16 @@ function getStateFromQuery() {
   } catch (error) {
     console.error(error);
   }
-  return {filters, pageIndex, sort};
+  // get `showCount`
+  const showCount = "c" in query;
+  // get `pageIndex`
+  let pageIndex = 0;
+  try {
+    if (query.p) pageIndex = Math.max(0, (+query.p) - 1);
+  } catch (error) {
+    console.error(error);
+  }
+  return {filters, sort, showCount, pageIndex};
 };
 const Root = makeComponent("root", function() {
   const [state, changeState] = this.useState((diff, prevState) => {
@@ -422,6 +437,7 @@ const Root = makeComponent("root", function() {
     }
     if (newQuery.f === DEFAULT_FILTERS) delete newQuery.f;
     if (newState.sort) newQuery.s = `${newState.sort.id},${newState.sort.ascending ? "a" : "d"}`;
+    if (newState.showCount) newQuery.c = "";
     if (newState.pageIndex > 0) newQuery.p = String(newState.pageIndex + 1);
     setQuery(newQuery);
     return newState;
@@ -432,7 +448,7 @@ const Root = makeComponent("root", function() {
       changeState({dataLoading: false, ...parseData(await response.text())});
     });
   }
-  const {rows, allTags_set, sort} = state;
+  const {rows, allTags_set, sort, showCount} = state;
   const mappedFilters = state.filters.map(orFilters => orFilters.map(filter => {
     const {type, value} = filter;
     const filterGroup = getFilterGroup(type);
@@ -572,7 +588,15 @@ const Root = makeComponent("root", function() {
   const column = this.append(Column({style: {width: "100%", margin: 16, gap: 8}}));
   const topRow = column.append(Row({style: {width: "100%"}}));
   topRow.append(Filters({state, changeState}));
-  topRow.append(Paging({state, changeState}));
+  const rightPanel = topRow.append(ColumnWrap({style: {marginLeft: "auto", height: "100%", gap: 4}}));
+  rightPanel.append(Checkbox({
+    id: "showCount",
+    label: "Show count",
+    checked: showCount,
+    inputEvents: {input: (event) => changeState({showCount: event.target.checked})},
+    style: {marginLeft: "auto"},
+  }));
+  rightPanel.append(Paging({state, changeState}));
   column.append(Hr({style: {width: "100%"}}));
   // table
   const {pageIndex, filteredRows} = state;
@@ -587,7 +611,7 @@ const Root = makeComponent("root", function() {
           cell.append(span(`${row.rating}%`, {style: {textAlign: "center", width: "100%"}, attribute: {title: row.recentReviews}}));
         },
       },
-      {
+      ...(showCount ? [{
         id: "C",
         label: "Count",
         maxWidth: 76,
@@ -609,7 +633,7 @@ const Root = makeComponent("root", function() {
           reviews = Math.round(reviews);
           cell.append(span(`${reviews}${unit}`, {style: {textAlign: "center", width: "100%"}, attribute: {title: row.recentReviews}}));
         },
-      },
+      }] : []),
       {
         id: "N",
         label: "Name",
