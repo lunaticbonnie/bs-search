@@ -591,7 +591,7 @@ const Root = makeComponent("root", function() {
   const rightPanel = topRow.append(ColumnWrap({style: {marginLeft: "auto", height: "100%", gap: 4}}));
   rightPanel.append(Checkbox({
     id: "showCount",
-    label: "Show count",
+    label: "Show review count",
     checked: showCount,
     inputEvents: {input: (event) => changeState({showCount: event.target.checked})},
     style: {marginLeft: "auto"},
