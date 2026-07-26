@@ -263,7 +263,8 @@ const Filters = makeComponent("filters", function(props) {
       onRemove: () => {
         const newFilters = [...state.filters];
         const newOrFilters = orFilters.slice(0, orFilters.length - 1);
-        newFilters.splice(i, 1, newOrFilters);
+        if (newOrFilters.length === 0) newFilters.splice(i, 1);
+        else newFilters.splice(i, 1, newOrFilters);
         changeState({filters: newFilters});
       },
     }));
