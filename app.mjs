@@ -93,8 +93,8 @@ const FilterType = {
   First20TagsExclude: "E20",
   First5TagsInclude: "I5",
   First5TagsExclude: "E5",
-  FuzzyInclude: "FI",
-  FuzzyExclude: "FE",
+  Fuzzy20Include: "FI",
+  Fuzzy20Exclude: "FE",
   Fuzzy5Include: "FI5",
   Fuzzy5Exclude: "FE5",
   RatingGTE: "RG",
@@ -107,8 +107,8 @@ const FilterType = {
 };
 function getFilterGroup(filterType) {
   switch (filterType) {
-  case FilterType.FuzzyInclude:
-  case FilterType.FuzzyExclude:
+  case FilterType.Fuzzy20Include:
+  case FilterType.Fuzzy20Exclude:
   case FilterType.Fuzzy5Include:
   case FilterType.Fuzzy5Exclude:
   case FilterType.NameInclude:
@@ -136,8 +136,8 @@ const t = {
   [FilterType.First20TagsExclude]: "First 20 tags exclude",
   [FilterType.First5TagsInclude]: "First 5 tags include",
   [FilterType.First5TagsExclude]: "First 5 tags exclude",
-  [FilterType.FuzzyInclude]: "Fuzzy 20 include",
-  [FilterType.FuzzyExclude]: "Fuzzy 20 exclude",
+  [FilterType.Fuzzy20Include]: "Fuzzy 20 include",
+  [FilterType.Fuzzy20Exclude]: "Fuzzy 20 exclude",
   [FilterType.Fuzzy5Include]: "Fuzzy 5 include",
   [FilterType.Fuzzy5Exclude]: "Fuzzy 5 exclude",
   [FilterType.RatingGTE]: "Rating% >=",
@@ -416,6 +416,23 @@ function getStateFromQuery() {
   }
   return {filters, sort, showCount, pageIndex};
 };
+function getTagHighlight(i, tag, filters) {
+  for (const filter of filters) {
+    switch (filter.type) {
+    case FilterType.First20TagsInclude:
+    case FilterType.First5TagsInclude: {
+      if (filter.value === tag) return true;
+    } break;
+    case FilterType.Fuzzy5Include: {
+      if (i >= 5) return false;
+    } // fallthrough
+    case FilterType.Fuzzy20Include: {
+      if (tag.toLowerCase().includes(filter.value.toLowerCase())) return true;
+    } break;
+    }
+  }
+  return false;
+}
 const Root = makeComponent("root", function() {
   const [state, changeState] = this.useState((diff, prevState) => {
     if (prevState == null) {
@@ -484,11 +501,11 @@ const Root = makeComponent("root", function() {
       case FilterType.First5TagsExclude: {
         return row.tags.slice(0, 5).indexOf(value) === -1;
       } break;
-      case FilterType.FuzzyInclude: {
+      case FilterType.Fuzzy20Include: {
         const valueLowercase = value.toLowerCase();
         return row.tags.some(tag => tag.toLowerCase().includes(valueLowercase));
       } break;
-      case FilterType.FuzzyExclude: {
+      case FilterType.Fuzzy20Exclude: {
         const valueLowercase = value.toLowerCase();
         return row.tags.every(tag => !tag.toLowerCase().includes(valueLowercase));
       } break;
@@ -602,6 +619,7 @@ const Root = makeComponent("root", function() {
   // table
   const {pageIndex, filteredRows} = state;
   const pagedRows = filteredRows.slice(pageIndex*PAGE_SIZE, (pageIndex+1)*PAGE_SIZE);
+  const flatFilters = mappedFilters.flatMap(v => v);
   column.append(Table({
     columns: [
       {
@@ -652,8 +670,10 @@ const Root = makeComponent("root", function() {
         label: "Tags",
         render: (row, cell) => {
           const tagsWrap = cell.append(RowWrap({className: "tags", style: {gap: 4}}));
-          for (const tag of row.tags) {
-            tagsWrap.append(span(tag, {className: "tag"}));
+          for (let i = 0; i < row.tags.length; i++) {
+            const tag = row.tags[i];
+            const highlight = getTagHighlight(i, tag, flatFilters);
+            tagsWrap.append(span(tag, {key: i, className: highlight ? "tag tag-highlight" : "tag"}));
           }
         },
         disableSorting: true,

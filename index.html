@@ -9,6 +9,7 @@
     }
     body {
       background: #272831;
+      background: #222225;
       color: white;
       font-family: "Motiva Sans", sans-serif;
       font-size: 16px;
@@ -42,6 +43,9 @@
     .table-row {
       width: 100%;
     }
+    .table-row:nth-child(2n) {
+      /*background: #25252c;*/
+    }
     .table-header-row {
       font-size: 20px;
     }
@@ -66,19 +70,20 @@
     }
     .tags {
       padding: 2px;
-      background: #222225;
     }
     .tag {
       display: inline-block;
       line-height: 19px;
       padding: 0 7px;
-      color: #67c1f5;
       color: #acb2b8;
       background: rgba(103, 193, 245, 0.2);
       box-shadow: none;
       margin-right: 2px;
       border-radius: 2px;
       font-size: 16px;
+    }
+    .tag-highlight {
+      color: #798a95;
     }
   </style>
   <script type="module" src="app.mjs"></script>
