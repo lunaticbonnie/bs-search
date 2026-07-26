@@ -221,6 +221,12 @@ const Filter = makeComponent("filter", function(props) {
     }
   } break;
   }
+  if (selectedFilterGroup === "tag" && selectedFilter.value === "Free to Play") {
+    this.append(Icon("warning", {
+      className: ["filter-warning"],
+      attribute: {title: "Two thirds of free games are missing this tag."},
+    }));
+  }
   return {
     onMount: () => {
       filterTypeSelect.node.value = selectedFilter.type;
