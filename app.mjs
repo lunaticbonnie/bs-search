@@ -368,7 +368,10 @@ function parseData(csvText) {
     const [id, name, recentReviews, ...tags] = csvRow.map(decodeCsv);
     let rating = +recentReviews.match(/(\d+)%.*? are positive/)?.[1];
     if (Number.isNaN(rating)) rating = 0;
-    let reviews = +recentReviews.match(/(\d+) user reviews.*? are positive/)?.[1];
+    const reviewsMatch = recentReviews.match(/([\d,]+) user reviews.*? are positive/)?.[1];
+    let reviews = 0;
+    if (reviewsMatch) reviews = +reviewsMatch.replace(/,/g, "");
+    else if (recentReviews.startsWith("Need more")) reviews = 5;
     if (Number.isNaN(reviews)) reviews = 0;
     rows.push({id, name, rating, reviews, recentReviews, tags});
     for (const tag of tags) allTags_set.add(tag);
@@ -643,19 +646,31 @@ const Root = makeComponent("root", function() {
         render: (row, cell) => {
           let {reviews} = row;
           let unit = "";
-          if (reviews >= 1000) {
-            reviews /= 1000;
-            unit = "K";
+          if (reviews < 10) {
+            reviews = "<10";
+          } else {
+            // find unit
+            if (reviews >= 1000) {
+              reviews /= 1000;
+              unit = "K";
+            }
+            if (reviews >= 1000) {
+              reviews /= 1000;
+              unit = "M";
+            }
+            if (reviews >= 1000) {
+              reviews /= 1000;
+              unit = "B";
+            }
+            // round
+            if (reviews < 1.1) {
+              reviews = Math.round(reviews * 100) / 100;
+            } else if (reviews < 11) {
+              reviews = Math.round(reviews * 10) / 10;
+            } else{
+              reviews = Math.round(reviews);
+            }
           }
-          if (reviews >= 1000) {
-            reviews /= 1000;
-            unit = "M";
-          }
-          if (reviews >= 1000) {
-            reviews /= 1000;
-            unit = "B";
-          }
-          reviews = Math.round(reviews);
           cell.append(span(`${reviews}${unit}`, {style: {textAlign: "center", width: "100%"}, attribute: {title: row.recentReviews}}));
         },
       }] : []),
