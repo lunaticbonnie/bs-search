@@ -704,5 +704,13 @@ const Root = makeComponent("root", function() {
     sort,
     onChangeSort: (sort) => changeState({sort}),
   }));
+  column.append(Paging({
+    state,
+    changeState: (diff) => {
+      changeState(diff);
+      document.documentElement.scrollTo(0, 0);
+    },
+    style: {marginLeft: "auto", paddingBottom: 4},
+  }));
 });
 renderRoot(Root());
