@@ -292,7 +292,11 @@ const Paging = makeComponent("paging", function(props) {
   const pageNumber = pageIndex + 1;
   const pageCount = getPageCount(state);
 
-  const row = this.append(RowWrap({style: {marginTop: "auto", gap: 4}}));
+  const row = this.append(RowWrap({style: {
+    marginTop: "auto",
+    gap: 4,
+    ...props.style,
+  }}));
   row.append(span(`Page ${pageNumber} of ${pageCount}`));
   const leftArrowDisabled = pageIndex <= 0;
   row.append(IconButton("chevron_right", {
@@ -710,7 +714,7 @@ const Root = makeComponent("root", function() {
       changeState(diff);
       document.documentElement.scrollTo(0, 0);
     },
-    style: {marginLeft: "auto", paddingBottom: 4},
+    style: {marginLeft: "auto", marginRight: 0, marginTop: -8, paddingBottom: 4},
   }));
 });
 renderRoot(Root());
