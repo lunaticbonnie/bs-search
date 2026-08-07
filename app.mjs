@@ -358,27 +358,54 @@ function decodeCsv(value) {
   value = value.slice(1, value.length-1);
   return value.replace(/""/g, '"');
 }
+function parseRowV1(csvRow) {
+  const [id, name, recentReviews, ...tags] = csvRow.map(decodeCsv);
+  let rating = +recentReviews.match(/(\d+)%.*? are positive/)?.[1];
+  if (Number.isNaN(rating)) rating = 0;
+  const reviewsMatch = recentReviews.match(/([\d,]+) user reviews.*? are positive/)?.[1];
+  let reviews = 0;
+  if (reviewsMatch) reviews = +reviewsMatch.replace(/,/g, "");
+  else if (recentReviews.startsWith("Need more")) reviews = 5;
+  if (Number.isNaN(reviews)) reviews = 0;
+  return {id, name, rating, recentReviews, reviews, tags};
+}
+function parseRowV2(csvRow) {
+  const [id, name, recentReviews, totalReviews, ...tags] = csvRow.map(decodeCsv);
+  let rating = +recentReviews.match(/(\d+)%.*? are positive/)?.[1];
+  if (Number.isNaN(rating)) rating = 0;
+  const reviewsMatch = (totalReviews || recentReviews).match(/([\d,]+)/)?.[1];
+  let reviews = 0;
+  if (reviewsMatch) reviews = +reviewsMatch.replace(/,/g, "");
+  if (Number.isNaN(reviews)) reviews = 0;
+  return {id, name, rating, recentReviews, reviews, totalReviews, tags};
+}
+const VERSION_MAP = {
+  v1: [parseRowV1, 23],
+  v2: [parseRowV2, 24],
+};
 function parseData(csvText) {
-  const csvLines = csvText.split(/\r?\n/).slice(1);
+  // parse version
+  let csvLines = csvText.split(/\r?\n/);
+  const firstLine = csvLines[0];
+  let version = "v1";
+  if (firstLine.startsWith("v")) {
+    version = firstLine;
+    csvLines = csvLines.slice(1);
+  }
+  const [parseRow, expectedColumnCount] = VERSION_MAP[version];
+  // parse rows
   const rows = [];
   const allTags_set = new Set();
   for (const line of csvLines) {
-    const csvRow = line.split("; ");
     if (!line) continue;
-    if (csvRow.length > 23) {
+    const csvRow = line.split("; ");
+    if (csvRow.length > expectedColumnCount) {
       console.error(`Invalid row: ${csvRow}`);
       continue;
     }
-    const [id, name, recentReviews, ...tags] = csvRow.map(decodeCsv);
-    let rating = +recentReviews.match(/(\d+)%.*? are positive/)?.[1];
-    if (Number.isNaN(rating)) rating = 0;
-    const reviewsMatch = recentReviews.match(/([\d,]+) user reviews.*? are positive/)?.[1];
-    let reviews = 0;
-    if (reviewsMatch) reviews = +reviewsMatch.replace(/,/g, "");
-    else if (recentReviews.startsWith("Need more")) reviews = 5;
-    if (Number.isNaN(reviews)) reviews = 0;
-    rows.push({id, name, rating, reviews, recentReviews, tags});
-    for (const tag of tags) allTags_set.add(tag);
+    const row = parseRow(csvRow);
+    rows.push(row);
+    for (const tag of row.tags) allTags_set.add(tag);
   }
   const allTags = Array.from(allTags_set).sort();
   return {rows, allTags, allTags_set};
@@ -675,7 +702,7 @@ const Root = makeComponent("root", function() {
               reviews = Math.round(reviews);
             }
           }
-          cell.append(span(`${reviews}${unit}`, {style: {textAlign: "center", width: "100%"}, attribute: {title: row.recentReviews}}));
+          cell.append(span(`${reviews}${unit}`, {style: {textAlign: "center", width: "100%"}, attribute: {title: row.totalReviews || row.recentReviews}}));
         },
       }] : []),
       {
