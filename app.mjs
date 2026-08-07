@@ -370,23 +370,24 @@ function parseRowV1(csvRow) {
   return {id, name, rating, recentReviews, reviews, tags};
 }
 function parseRowV2(csvRow) {
-  const [id, name, recentReviews, totalReviews, ...tags] = csvRow.map(decodeCsv);
+  let [id, name, recentReviews, totalReviews, ...tags] = csvRow.map(decodeCsv);
+  totalReviews = totalReviews.trim();
+  totalReviews = totalReviews.startsWith("(") ? totalReviews.slice(1, -1) : totalReviews;
   // parse `recentReviews`
   let rating = +recentReviews.match(/(\d+)%.*? are positive/)?.[1];
   if (Number.isNaN(rating)) rating = 0;
   let reviewsMatch;
   if (totalReviews) {
-    reviewsMatch = recentReviews.match(/([\d,]+) user reviews.*? are positive/)?.[1];
-  } else {
     reviewsMatch = totalReviews.match(/([\d,]+)/)?.[1];
+  } else {
+    reviewsMatch = recentReviews.match(/([\d,]+) user reviews.*? are positive/)?.[1];
   }
   // parse `totalReviews`
   let reviews = 0;
   if (reviewsMatch) reviews = +reviewsMatch.replace(/,/g, "");
   else if (recentReviews.startsWith("Need more")) reviews = 5;
   if (Number.isNaN(reviews)) reviews = 0;
-  const totalReviewsString = totalReviews.startsWith("(") ? totalReviews.slice(1, -1) : totalReviews;
-  return {id, name, rating, recentReviews, reviews, totalReviews: totalReviewsString, tags};
+  return {id, name, rating, recentReviews, reviews, totalReviews, tags};
 }
 const VERSION_MAP = {
   v1: [parseRowV1, 23],
@@ -456,6 +457,8 @@ function getStateFromQuery() {
   }
   // get `showCount`
   const showCount = "c" in query;
+  // get `markRecent`
+  const markRecent = "r" in query;
   // get `pageIndex`
   let pageIndex = 0;
   try {
@@ -463,7 +466,7 @@ function getStateFromQuery() {
   } catch (error) {
     console.error(error);
   }
-  return {filters, sort, showCount, pageIndex};
+  return {filters, sort, showCount, markRecent, pageIndex};
 };
 function getTagHighlight(i, tag, filters) {
   for (const filter of filters) {
@@ -505,6 +508,7 @@ const Root = makeComponent("root", function() {
     if (newQuery.f === DEFAULT_FILTERS) delete newQuery.f;
     if (newState.sort) newQuery.s = `${newState.sort.id},${newState.sort.ascending ? "a" : "d"}`;
     if (newState.showCount) newQuery.c = "";
+    if (newState.markRecent) newQuery.r = "";
     if (newState.pageIndex > 0) newQuery.p = String(newState.pageIndex + 1);
     setQuery(newQuery);
     return newState;
@@ -515,7 +519,7 @@ const Root = makeComponent("root", function() {
       changeState({dataLoading: false, ...parseData(await response.text())});
     });
   }
-  const {rows, allTags_set, sort, showCount} = state;
+  const {rows, allTags_set, sort, showCount, markRecent} = state;
   const mappedFilters = state.filters.map(orFilters => orFilters.map(filter => {
     const {type, value} = filter;
     const filterGroup = getFilterGroup(type);
@@ -663,6 +667,13 @@ const Root = makeComponent("root", function() {
     inputEvents: {input: (event) => changeState({showCount: event.target.checked})},
     style: {marginLeft: "auto"},
   }));
+  rightPanel.append(Checkbox({
+    id: "markRecent",
+    label: "Mark recent",
+    checked: markRecent,
+    inputEvents: {input: (event) => changeState({markRecent: event.target.checked})},
+    style: {marginLeft: "auto"},
+  }));
   rightPanel.append(Paging({state, changeState}));
   column.append(Hr({style: {width: "100%"}}));
   // table
@@ -711,7 +722,13 @@ const Root = makeComponent("root", function() {
               reviews = Math.round(reviews);
             }
           }
-          cell.append(span(`${reviews}${unit}`, {style: {textAlign: "center", width: "100%"}, attribute: {title: row.totalReviews || row.recentReviews}}));
+          const recentMarker = markRecent && !row.totalReviews && row.recentReviews.includes("in the last") ? "~" : "";
+          cell.append(span(`${recentMarker}${reviews}${unit}`, {
+            style: {textAlign: "center", width: "100%"},
+            attribute: {
+              title: (row.totalReviews || row.recentReviews).replace(/<br>/g, "\n"),
+            },
+          }));
         },
       }] : []),
       {
