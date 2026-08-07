@@ -2,16 +2,22 @@ import csv
 import json
 import os
 import re
+from sys import argv
 import time
 import requests
 from html.parser import HTMLParser
 
 # params
+VERSION = "v2"
 GAMES_CSV_PATH = "steam.csv"
 START_TXT_PATH = "start.txt"
 PAGE_SIZE = 50
 SECONDS_BETWEEN_REQUESTS = 60
 assert(SECONDS_BETWEEN_REQUESTS >= 10)
+
+# args
+DEBUG = "debug" in argv
+print(f"DEBUG: {DEBUG}")
 
 # request utils
 def fetch_text(url, params = None, **kwargs):
@@ -65,13 +71,19 @@ def read_games_csv(file_path: str):
   acc = dict[str, list[str]]()
   try:
     with open(file_path, "r", encoding="utf8", newline='') as f:
-      for row in csv.reader(f, delimiter=';', skipinitialspace=True):
-        acc[row[0]] = row
+      first_line = f.readline()
+      if first_line.startswith("v2"):
+        for row in csv.reader(f, delimiter=';', skipinitialspace=True):
+          acc[row[0]] = row
+      else:
+        for row in csv.reader(f, delimiter=';', skipinitialspace=True):
+          [app_id, name, recent_reviews, *tags] = row
+          acc[row[0]] = [app_id, name, recent_reviews, "", *tags]
   except FileNotFoundError:
     pass
   return acc
 def write_games_csv(file_path: str, csv: dict[str, list[str]]):
-  content = ""
+  content = f"{VERSION}\n"
   for row in csv.values():
     content += f"{"; ".join(escape_csv(v) for v in row)}\n"
   write_file_atomically(file_path, content)
@@ -112,6 +124,7 @@ if __name__ == "__main__":
     results_html = data["results_html"]
     app_ids = re.findall(r'data-ds-appid="(\d+)"', results_html)
     print(f"app_ids: {app_ids}")
+    if DEBUG: app_ids = app_ids[:1]
     # set next request to next page
     start += PAGE_SIZE
     if start > total_count: start = 0
@@ -130,9 +143,16 @@ if __name__ == "__main__":
       recent_reviews_node = find_html_element(html, lambda node: "user_reviews_summary_row" in node["class"])
       recent_reviews = recent_reviews_node["data-tooltip-html"]
       print(f"recent_reviews: {recent_reviews}")
+      # parse total_review_count
+      total_review_count_node = find_html_element(html, lambda node: "app_reviews_count" in node["class"])
+      total_review_count = ""
+      if total_review_count_node != None:
+        total_review_count = total_review_count_node["textContent"]
+      print(f"total_review_count: {total_review_count}")
       # parse tags
       tag_nodes = find_html_elements(html, lambda node: node["tagName"] == "a" and "app_tag" in node["class"] and "add_button" not in node["class"])
       tags = [node["textContent"] for node in tag_nodes]
       print(f"tags: {tags}")
-      games[app_id] = [app_id, name, recent_reviews, *tags]
+      games[app_id] = [app_id, name, recent_reviews, total_review_count, *tags]
     write_games_csv(GAMES_CSV_PATH, games)
+    if DEBUG: exit(0)
