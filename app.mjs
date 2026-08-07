@@ -371,13 +371,22 @@ function parseRowV1(csvRow) {
 }
 function parseRowV2(csvRow) {
   const [id, name, recentReviews, totalReviews, ...tags] = csvRow.map(decodeCsv);
+  // parse `recentReviews`
   let rating = +recentReviews.match(/(\d+)%.*? are positive/)?.[1];
   if (Number.isNaN(rating)) rating = 0;
-  const reviewsMatch = (totalReviews || recentReviews).match(/([\d,]+)/)?.[1];
+  let reviewsMatch;
+  if (totalReviews) {
+    reviewsMatch = recentReviews.match(/([\d,]+) user reviews.*? are positive/)?.[1];
+  } else {
+    reviewsMatch = totalReviews.match(/([\d,]+)/)?.[1];
+  }
+  // parse `totalReviews`
   let reviews = 0;
   if (reviewsMatch) reviews = +reviewsMatch.replace(/,/g, "");
+  else if (recentReviews.startsWith("Need more")) reviews = 5;
   if (Number.isNaN(reviews)) reviews = 0;
-  return {id, name, rating, recentReviews, reviews, totalReviews, tags};
+  const totalReviewsString = totalReviews.startsWith("(") ? totalReviews.slice(1, -1) : totalReviews;
+  return {id, name, rating, recentReviews, reviews, totalReviews: totalReviewsString, tags};
 }
 const VERSION_MAP = {
   v1: [parseRowV1, 23],
