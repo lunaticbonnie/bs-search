@@ -393,6 +393,41 @@ const VERSION_MAP = {
   v1: [parseRowV1, 23],
   v2: [parseRowV2, 24],
 };
+function parseCsvRow(csvLine) {
+  const /** @type {string[]} */ acc = [];
+  let i = 0;
+  let j = 0;
+  while (i < csvLine.length) {
+    while (i < csvLine.length && csvLine[i] === ' ') i++;
+    j = i;
+    if (i < csvLine.length && csvLine[i] === '"') {
+      // quoted csv
+      i += 1;
+      j += 2;
+      while (j < csvLine.length) {
+        if (csvLine[j] === '"') {
+          if (j+1 < csvLine.length, csvLine[j+1] === '"') {
+            j += 2;
+            continue;
+          } else {
+            break;
+          }
+        }
+        j += 1;
+      }
+      acc.push(csvLine.slice(i, j).replace(/""/g, "\""));
+      while (j < csvLine.length && csvLine[j] !== ';') j++;
+      j += 1;
+    } else {
+      // unquoted csv
+      while (j < csvLine.length && csvLine[j] !== ';') j++;
+      acc.push(csvLine.slice(i, j).trim());
+      j += 1;
+    }
+    i = j;
+  }
+  return acc;
+}
 function parseData(csvText) {
   // parse version
   let csvLines = csvText.split(/\r?\n/);
@@ -406,11 +441,11 @@ function parseData(csvText) {
   // parse rows
   const rows = [];
   const allTags_set = new Set();
-  for (const line of csvLines) {
-    if (!line) continue;
-    const csvRow = line.split("; ");
+  for (const csvLine of csvLines) {
+    if (!csvLine) continue;
+    const csvRow = parseCsvRow(csvLine);
     if (csvRow.length > expectedColumnCount) {
-      console.error(`Invalid row: ${csvRow}`);
+      console.error("Invalid row:", csvRow);
       continue;
     }
     const row = parseRow(csvRow);
@@ -418,6 +453,7 @@ function parseData(csvText) {
     for (const tag of row.tags) allTags_set.add(tag);
   }
   const allTags = Array.from(allTags_set).sort();
+  console.log("rows", rows);
   return {rows, allTags, allTags_set};
 }
 
