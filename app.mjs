@@ -453,7 +453,6 @@ function parseData(csvText) {
     for (const tag of row.tags) allTags_set.add(tag);
   }
   const allTags = Array.from(allTags_set).sort();
-  console.log("rows", rows);
   return {rows, allTags, allTags_set};
 }
 
