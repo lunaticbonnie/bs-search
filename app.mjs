@@ -453,6 +453,12 @@ function parseData(csvText) {
     for (const tag of row.tags) allTags_set.add(tag);
   }
   const allTags = Array.from(allTags_set).sort();
+  const key = (row) => row.rating * row.reviews;
+  rows.sort((a, b) => {
+    const key_a = key(a);
+    const key_b = key(b);
+    return (key_a < key_b) - (key_a > key_b);
+  });
   return {rows, allTags, allTags_set};
 }
 
