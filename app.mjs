@@ -678,7 +678,6 @@ const Root = makeComponent("root", function() {
       return true;
     }
   }
-  console.log({mappedFilters})
   state.filteredRows = rows.filter(row => (
     mappedFilters.every(orFilters => orFilters.some(filter => {
       if (!filter) return true;
