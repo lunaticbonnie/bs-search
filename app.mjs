@@ -88,151 +88,238 @@ function setQuery(newQuery) {
 }
 
 // app
-const FilterType = {
-  First20TagsInclude: "I20",
-  First20TagsExclude: "E20",
-  First5TagsInclude: "I5",
-  First5TagsExclude: "E5",
-  Fuzzy20Include: "FI",
-  Fuzzy20Exclude: "FE",
-  Fuzzy5Include: "FI5",
-  Fuzzy5Exclude: "FE5",
-  RatingGTE: "RG",
-  RatingLTE: "RL",
-  ReviewCountGTE: "RCG",
-  ReviewCountLTE: "RCL",
-  NameInclude: "NI",
-  NameExclude: "NE",
-  CSVNameInclude: "CNI",
+const CompareFilter = {
+  GreaterOrEqual: "0",
+  LesserOrEqual: "1",
+  Equal: "2",
+  NotEqual: "3",
 };
-function getFilterGroup(filterType) {
-  switch (filterType) {
-  case FilterType.Fuzzy20Include:
-  case FilterType.Fuzzy20Exclude:
-  case FilterType.Fuzzy5Include:
-  case FilterType.Fuzzy5Exclude:
-  case FilterType.NameInclude:
-  case FilterType.NameExclude: {
-    return "text";
-  } break;
-  case FilterType.CSVNameInclude: {
-    return "csv";
-  } break;
-  case FilterType.RatingGTE:
-  case FilterType.RatingLTE: {
-    return "rating";
-  } break;
-  case FilterType.ReviewCountGTE:
-  case FilterType.ReviewCountLTE: {
-    return "count";
-  } break;
-  default: {
-    return "tag";
-  } break;
-  }
+const MatchFilter = {
+  Includes: "0",
+  Excludes: "1",
+  FuzzyIncludes: "2",
+  FuzzyExcludes: "3",
+};
+const FILTER_WIDTH = 170;
+function compareSteps(type) {
+  const COMPARE_WIDTH = 42;
+  return [[
+    {
+      width: COMPARE_WIDTH,
+      [CompareFilter.GreaterOrEqual]: {label: ">="},
+      [CompareFilter.LesserOrEqual]: {label: "<="},
+      [CompareFilter.Equal]: {label: "="},
+      [CompareFilter.NotEqual]: {label: "!="},
+    },
+    {
+      width: FILTER_WIDTH - COMPARE_WIDTH,
+      type,
+    },
+  ]];
 }
-const t = {
-  [FilterType.First20TagsInclude]: "First 20 tags include",
-  [FilterType.First20TagsExclude]: "First 20 tags exclude",
-  [FilterType.First5TagsInclude]: "First 5 tags include",
-  [FilterType.First5TagsExclude]: "First 5 tags exclude",
-  [FilterType.Fuzzy20Include]: "Fuzzy 20 include",
-  [FilterType.Fuzzy20Exclude]: "Fuzzy 20 exclude",
-  [FilterType.Fuzzy5Include]: "Fuzzy 5 include",
-  [FilterType.Fuzzy5Exclude]: "Fuzzy 5 exclude",
-  [FilterType.RatingGTE]: "Rating% >=",
-  [FilterType.RatingLTE]: "Rating% <=",
-  [FilterType.ReviewCountGTE]: "Review count >=",
-  [FilterType.ReviewCountLTE]: "Review count <=",
-  [FilterType.NameInclude]: "Name includes",
-  [FilterType.NameExclude]: "Name excludes",
-  [FilterType.CSVNameInclude]: "CSV name includes"
+const FILTERS = {
+  width: FILTER_WIDTH,
+  F: {
+    label: "First",
+    steps: [
+      [
+        {
+          width: 68,
+          type: "tagCount",
+          suffix: " tags",
+        },
+        {
+          width: 102,
+          [MatchFilter.Includes]: {label: "include"},
+          [MatchFilter.Excludes]: {label: "exclude"},
+          [MatchFilter.FuzzyIncludes]: {label: "fuzzy include"},
+          [MatchFilter.FuzzyExcludes]: {label: "fuzzy exclude"},
+        },
+      ],
+      (prevSteps) => {
+        const isFuzzy = [MatchFilter.FuzzyIncludes, MatchFilter.FuzzyExcludes].includes(prevSteps[prevSteps.length - 1]);
+        console.log("isFuzzy", prevSteps, isFuzzy)
+        return isFuzzy ? "text" : "tag";
+      },
+    ],
+  },
+  T: {
+    label: "Tag count",
+    steps: compareSteps("tagCount"),
+  },
+  R: {
+    label: "Rating%",
+    steps: compareSteps("rating"),
+  },
+  C: {
+    label: "Review count",
+    steps: compareSteps("count"),
+  },
+  N: {
+    label: "Name",
+    steps: [
+      {
+        [MatchFilter.Includes]: {label: "includes"},
+        [MatchFilter.Excludes]: {label: "excludes"},
+        [MatchFilter.FuzzyIncludes]: {label: "fuzzy includes"},
+        [MatchFilter.FuzzyExcludes]: {label: "fuzzy excludes"},
+      },
+      (prevSteps) => ({
+        width: prevSteps[prevSteps.length - 1].startsWith("C") ? 500 : undefined,
+        type: "text",
+      }),
+    ],
+  },
 };
-const FILTER_INPUT_STYLES = {width: 146};
-const FILTER_CSV_STYLES = {width: 500};
-const FILTER_SELECT_STYLES = {...FILTER_INPUT_STYLES, paddingRight: 16}
-const Filter = makeComponent("filter", function(props) {
+function _computeFilterSize(info) {
+  let n = 1;
+  for (const step of info.steps) {
+    if (Array.isArray(step)) {
+      for (const _substep of step) {
+        n++;
+      }
+    } else {
+      n++;
+    }
+  }
+  return n;
+}
+const FILTER_SIZE = Object.fromEntries(Object.entries(resolveFilter(FILTERS, []).extra).map(([k, v]) => [k, _computeFilterSize(v)]));
+function resolveFilter(filterDefinition, prevValues) {
+  if (typeof filterDefinition === "function") filterDefinition = filterDefinition(prevValues)
+  if (typeof filterDefinition === "string") return {type: filterDefinition};
+  const {type = "select", width, suffix, steps, ...extra} = filterDefinition;
+  return { type, width, suffix, steps, extra };
+}
+/* TODO: simplify to
+  - First + N tags + include/exclude/fuzzy include/fuzzy exclude
+  - Tag count + includes/excludes
+  - Name + includes/excludes/csv includes/csv excludes
+  - Rating% + >=/<=
+  - Review count + >=/<=
+*/
+// TODO: `paddingRight: 16` on selects
+const DEFAULT_FILTER = ["F", "", "I", 20];
+const Filter = makeComponent("filter", function (props) {
   const {state, changeState, i, j} = props;
-  const selectedFilter = state.filters[i][j] ?? {
-    type: FilterType.First20TagsInclude,
-    value: "",
-  };
-  const selectedFilterGroup = getFilterGroup(selectedFilter.type);
-  const setSelectedFilter = (diff) => {
+  const filterValue = state.filters[i][j];
+  const changeFilter = (newValue, stepIndex) => {
     const newFilters = [...state.filters];
-    
     const newOrFilters = [...state.filters[i]];
-    const newFilter = {...selectedFilter, ...diff};
+    const newFilter = [...filterValue];
+    newFilter.splice(stepIndex, 1, newValue);
     newOrFilters.splice(j, 1, newFilter);
-
     newFilters.splice(i, 1, newOrFilters);
     changeState({filters: newFilters, pageIndex: 0});
   }
-  const column = this.append(Column());
-  // filter type
-  const filterTypeSelect = column.append(Select({
-    style: FILTER_SELECT_STYLES,
-    attribute: {name: "type"},
-    events: {input: (event) => setSelectedFilter({type: event.target.value})},
-  }));
-  for (const filterType of Object.values(FilterType)) {
-    filterTypeSelect.append(Option(filterType, t[filterType]));
+  // render type select
+  let prevStepCount = 0;
+  const renderSubstep = (parent, filterDefinition, stepIndex) => {
+    parent.append(FilterStep({
+      key: stepIndex,
+      allTags: state.allTags,
+      info: resolveFilter(filterDefinition, filterValue.slice(0, prevStepCount++)),
+      stepValue: filterValue[stepIndex],
+      changeStep: (newValue) => changeFilter(newValue, stepIndex),
+    }));
   }
-  // filter value
-  let filterValueInput;
-  switch (selectedFilterGroup) {
-  case "rating": {
-    filterValueInput = column.append(Input({
-      style: FILTER_INPUT_STYLES,
-      attribute: {name: selectedFilterGroup, type: "number", min: 0, max: 100, step: 1},
-      events: {input: (event) => setSelectedFilter({value: event.target.value})},
-    }));
-  } break;
-  case "count": {
-    filterValueInput = column.append(Input({
-      style: FILTER_INPUT_STYLES,
-      attribute: {name: selectedFilterGroup, type: "number", step: 1},
-      events: {input: (event) => setSelectedFilter({value: event.target.value})},
-    }));
-  } break;
-  case "text": {
-    filterValueInput = column.append(Input({
-      style: FILTER_INPUT_STYLES,
-      attribute: {name: selectedFilterGroup},
-      events: {input: (event) => setSelectedFilter({value: event.target.value})},
-    }));
-  } break;
-  case "csv": {
-    filterValueInput = column.append(Input({
-      style: FILTER_CSV_STYLES,
-      attribute: {name: selectedFilterGroup},
-      events: {input: (event) => setSelectedFilter({value: event.target.value})},
-    }));
-  } break;
-  default: {
-    filterValueInput = column.append(Select({
-      style: FILTER_SELECT_STYLES,
-      attribute: {name: selectedFilterGroup},
-      events: {input: (event) => setSelectedFilter({value: event.target.value})},
-    }));
-    filterValueInput.append(Option(""));
-    for (const tag of state.allTags) {
-      filterValueInput.append(Option(tag));
+  try {
+    // render filter type
+    const wrapper = this.append(RowWrap({style: {gap: 4}}));
+    const column = wrapper.append(Column());
+    renderSubstep(column, FILTERS, 0);
+    // render filter steps
+    const filterType = filterValue[0];
+    let stepIndex = FILTER_SIZE[filterType];
+    const {steps = []} = FILTERS[filterType];
+    for (const step of steps) {
+      if (Array.isArray(step)) {
+        const row = column.append(Row());
+        for (const substep of step) {
+          renderSubstep(row, substep, --stepIndex);
+        }
+      } else {
+        renderSubstep(column, step, --stepIndex);
+      }
     }
-  } break;
+    if (filterType === "F" && filterValue[1] === "Free to Play") {
+      wrapper.append(Icon("warning", {
+        className: ["filter-warning"],
+        attribute: {title: "Two thirds of free games are missing this tag."},
+      }));
+    }
+  } catch (error) {
+    console.error(error);
   }
-  if (selectedFilterGroup === "tag" && selectedFilter.value === "Free to Play") {
-    this.append(Icon("warning", {
-      className: ["filter-warning"],
-      attribute: {title: "Two thirds of free games are missing this tag."},
+});
+const FilterStep = makeComponent("filterStep", function(props) {
+  const {allTags, info, stepValue, changeStep} = props;
+  const {type, width = FILTER_WIDTH, suffix = "", extra} = info;
+  console.log(info);
+  let input;
+  if (type === "select") {
+    input = this.append(Select({
+      style: {width, paddingRight: 16},
+      attribute: {name: type},
+      events: {input: (event) => changeStep(event.target.value)},
+    }));
+    for (const [id, subInfo] of Object.entries(extra)) {
+      const {label} = subInfo;
+      input.append(Option(id, label));
+    }
+  } else if (type === "tag") {
+    input = this.append(Select({
+      style: {width, paddingRight: 16},
+      attribute: {name: type},
+      events: {input: (event) => changeStep(event.target.value)},
+    }));
+    input.append(Option(""));
+    for (const tag of allTags) {
+      input.append(Option(tag));
+    }
+  } else if (type === "text") {
+    input = this.append(Input({
+      style: {width},
+      attribute: {name: type},
+      events: {input: (event) => changeStep(event.target.value)},
+    }));
+  } else if (type === "tagCount") {
+    if (suffix) {
+      input = this.append(Select({
+        style: {width, paddingRight: 16},
+        attribute: {name: type},
+        events: {input: (event) => changeStep(event.target.value)},
+      }));
+    } else {
+      input = this.append(Input({
+        style: {width},
+        attribute: {name: type, type: "number", step: 1, min: 0, max: 20},
+        events: {input: (event) => changeStep(event.target.value)},
+      }));
+    }
+    for (let n = 20; n >= 0; n--) {
+      input.append(Option(n, `${n}${suffix}`));
+    }
+  } else if (type === "rating") {
+    input = this.append(Input({
+      style: {width},
+      attribute: {name: type, type: "number", step: 1, min: 0, max: 100},
+      events: {input: (event) => changeStep(event.target.value)},
+    }));
+  } else if (type === "count") {
+    input = this.append(Input({
+      style: {width},
+      attribute: {name: type, type: "number", step: 1},
+      events: {input: (event) => changeStep(event.target.value)},
     }));
   }
+  // controlled input
   return {
     onMount: () => {
-      filterTypeSelect.node.value = selectedFilter.type;
-      filterValueInput.node.value = selectedFilter.value;
+      if (input) input.node.value = stepValue;
+      else console.error(`Unhandled filter type`, info);
     }
-  }
+  };
 });
 const FilterButtons = makeComponent("filter-buttons", function (props) {
   const {onAdd, onRemove} = props;
@@ -256,13 +343,13 @@ const Filters = makeComponent("filters", function(props) {
     const orFilters = state.filters[i];
     for (let j = 0; j < orFilters.length; j++) {
       if (j !== 0) row.append(span("or"));
-      row.append(Filter({state, changeState, i, j}));
+      row.append(Filter({state, changeState, i, j, stepIndex: 0}));
     }
     // new OR
     row.append(FilterButtons({
       onAdd: () => {
         const newFilters = [...state.filters];
-        const newOrFilters = [...orFilters, {type: FilterType.First20TagsInclude, value: ""}];
+        const newOrFilters = [...orFilters, DEFAULT_FILTER];
         newFilters.splice(i, 1, newOrFilters);
         changeState({filters: newFilters});
       },
@@ -278,7 +365,7 @@ const Filters = makeComponent("filters", function(props) {
   // new AND
   const buttons = column.append(FilterButtons({
     style: {marginLeft: 110},
-    onAdd: () => changeState({filters: [...state.filters, [{type: FilterType.First20TagsInclude, value: ""}]]}),
+    onAdd: () => changeState({filters: [...state.filters, [DEFAULT_FILTER]]}),
     onRemove: () => changeState({filters: [...state.filters].slice(0, state.filters.length - 1)}),
   }));
 });
@@ -461,10 +548,11 @@ function parseData(csvText) {
   });
   return {rows, allTags, allTags_set};
 }
-
-const DEFAULT_FILTERS = "v1,0,0,I20,";
+function encodeURIParts(array) {
+  return array.map(encodeURIPart).join(",");
+}
 function encodeURIPart(v) {
-  return v.replace(/[&,]/g, (m) => m[0] === "&" ? "%26" : "%2C");
+  return String(v).replace(/[&,]/g, (m) => m[0] === "&" ? "%26" : "%2C");
 }
 function decodeURIPart(v) {
   return decodeURIComponent(v);
@@ -474,14 +562,25 @@ function getStateFromQuery() {
   // get `filters`
   const filters = [];
   try {
-    const f = (query.f ?? DEFAULT_FILTERS).split(",");
-    const version = f[0];
-    for (let offset = 1; offset < f.length; offset += 4) {
-      const [i, j, type, value] = f.slice(offset, offset + 4);
+    let f = query.f ? query.f.split(",") : [0, 0, ...DEFAULT_FILTER];
+    if (f[0] === "v1") f = [];
+    let offset = 0;
+    let prevOffset = 0;
+    const filterSize = Object.values(FILTER_SIZE).reduce((acc, v) => Math.max(acc, v));
+    while (offset < f.length) {
+      const [i, j] = f.slice(offset, offset + 2);
+      offset += 2;
+      const values = f.slice(offset, offset + filterSize);
+      offset += filterSize;
       while (i >= filters.length) filters.push([]);
       const orFilters = filters[i];
-      while (j >= orFilters.length) orFilters.push(undefined);
-      orFilters[j] = {type, value: decodeURIPart(value)};
+      while (j >= orFilters.length) orFilters.push(DEFAULT_FILTER);
+      orFilters[j] = values;
+      if (offset === prevOffset) {
+        console.error("Broken query.f parser!");
+        break;
+      }
+      prevOffset = offset;
     }
   } catch (error) {
     console.error(error);
@@ -510,6 +609,8 @@ function getStateFromQuery() {
   return {filters, sort, showCount, markRecent, pageIndex};
 };
 function getTagHighlight(i, tag, filters) {
+  return false;
+  // TODO: getTagHighlight()
   for (const filter of filters) {
     switch (filter.type) {
     case FilterType.First20TagsInclude:
@@ -538,15 +639,15 @@ const Root = makeComponent("root", function() {
       };
     }
     const newState = {...prevState, ...diff};
-    const newQuery = {f: "v1"};
+    const newQuery = {f: ""};
     for (let i = 0; i < newState.filters.length; i++) {
       const orFilters = newState.filters[i];
       for (let j = 0; j < orFilters.length; j++) {
-        const filter = orFilters[j];
-        newQuery.f += `,${i},${j},${filter?.type ?? ""},${encodeURIPart((filter?.value ?? ""))}`;
+        const filterValues = orFilters[j];
+        newQuery.f += `${newQuery.f ? "," : ""}${i},${j},${encodeURIParts(filterValues)}`;
       }
     }
-    if (newQuery.f === DEFAULT_FILTERS) delete newQuery.f;
+    if (newQuery.f === `0,0,${encodeURIParts(DEFAULT_FILTER)}` || newQuery.f === "") delete newQuery.f;
     if (newState.sort) newQuery.s = `${newState.sort.id},${newState.sort.ascending ? "a" : "d"}`;
     if (newState.showCount) newQuery.c = "";
     if (newState.markRecent) newQuery.r = "";
@@ -562,6 +663,8 @@ const Root = makeComponent("root", function() {
   }
   const {rows, allTags_set, sort, showCount, markRecent} = state;
   const mappedFilters = state.filters.map(orFilters => orFilters.map(filter => {
+    return filter;
+    // TODO: map filters
     const {type, value} = filter;
     const filterGroup = getFilterGroup(type);
     switch (filterGroup) {

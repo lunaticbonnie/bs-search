@@ -15,6 +15,10 @@ hr {
 button {
   padding: 0;
 }
+input {
+  padding-top: 0;
+  padding-bottom: 0;
+}
 :not(p) {
   line-height: 1;
 }
