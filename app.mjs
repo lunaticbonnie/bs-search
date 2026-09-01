@@ -683,6 +683,7 @@ const Root = makeComponent("root", function() {
       if (!filter) return true;
       const type = filter[0];
       const value = filter[1];
+      if (value === "") return true;
       switch (type) {
       case "F": {
         const subtype = filter[2];
