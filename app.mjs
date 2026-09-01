@@ -186,6 +186,7 @@ function _computeFilterSize(info) {
   return n;
 }
 const FILTER_SIZE = Object.fromEntries(Object.entries(resolveFilter(FILTERS, []).extra).map(([k, v]) => [k, _computeFilterSize(v)]));
+const MAX_FILTER_SIZE = Object.values(FILTER_SIZE).reduce((acc, v) => Math.max(acc, v));;
 function resolveFilter(filterDefinition, prevValues) {
   if (typeof filterDefinition === "function") filterDefinition = filterDefinition(prevValues)
   if (typeof filterDefinition === "string") return {type: filterDefinition};
@@ -558,12 +559,11 @@ function getStateFromQuery() {
     if (f[0] === "v1") f = [];
     let offset = 0;
     let prevOffset = 0;
-    const filterSize = Object.values(FILTER_SIZE).reduce((acc, v) => Math.max(acc, v));
     while (offset < f.length) {
       const [i, j] = f.slice(offset, offset + 2);
       offset += 2;
-      const values = f.slice(offset, offset + filterSize);
-      offset += filterSize;
+      const values = f.slice(offset, offset + MAX_FILTER_SIZE);
+      offset += MAX_FILTER_SIZE;
       while (i >= filters.length) filters.push([]);
       const orFilters = filters[i];
       while (j >= orFilters.length) orFilters.push(DEFAULT_FILTER);
