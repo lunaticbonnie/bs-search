@@ -587,10 +587,8 @@ function getStateFromQuery() {
   } catch (error) {
     console.error(error);
   }
-  // get `showCount`
-  const showCount = "c" in query;
   // get `markRecent`
-  const markRecent = "r" in query;
+  const markRecent = query.r !== "0";
   // get `pageIndex`
   let pageIndex = 0;
   try {
@@ -598,7 +596,7 @@ function getStateFromQuery() {
   } catch (error) {
     console.error(error);
   }
-  return {filters, sort, showCount, markRecent, pageIndex};
+  return {filters, sort, markRecent, pageIndex};
 };
 function getTagHighlight(i, tag, tagFilters) {
   return tagFilters.some(filter => {
@@ -634,8 +632,7 @@ const Root = makeComponent("root", function() {
     }
     if (newQuery.f === `0,0,${encodeURIParts(DEFAULT_FILTER)}` || newQuery.f === "") delete newQuery.f;
     if (newState.sort) newQuery.s = `${newState.sort.id},${newState.sort.ascending ? "a" : "d"}`;
-    if (newState.showCount) newQuery.c = "";
-    if (newState.markRecent) newQuery.r = "";
+    if (!newState.markRecent) newQuery.r = "0";
     if (newState.pageIndex > 0) newQuery.p = String(newState.pageIndex + 1);
     setQuery(newQuery);
     return newState;
@@ -647,7 +644,7 @@ const Root = makeComponent("root", function() {
     });
   }
   // filter rows
-  const {rows, allTags_set, sort, showCount, markRecent} = state;
+  const {rows, allTags_set, sort, markRecent} = state;
   const mappedFilters = state.filters.map(orFilters => orFilters.map(filter => {
     let [type, value, s0, s1] = filter;
     s0 = +s0;
@@ -808,13 +805,6 @@ const Root = makeComponent("root", function() {
   topRow.append(Filters({state, changeState}));
   const rightPanel = topRow.append(ColumnWrap({style: {marginLeft: "auto", height: "100%", gap: 4}}));
   rightPanel.append(Checkbox({
-    id: "showCount",
-    label: "Show review count",
-    checked: showCount,
-    inputEvents: {input: (event) => changeState({showCount: event.target.checked})},
-    style: {marginLeft: "auto"},
-  }));
-  rightPanel.append(Checkbox({
     id: "markRecent",
     label: "Mark recent",
     checked: markRecent,
@@ -832,12 +822,12 @@ const Root = makeComponent("root", function() {
       {
         id: "R",
         label: "Rating",
-        maxWidth: showCount ? 76 : 80,
+        maxWidth: 76,
         render: (row, cell) => {
           cell.append(span(`${row.rating}%`, {style: {textAlign: "center", width: "100%"}, attribute: {title: row.recentReviews}}));
         },
       },
-      ...(showCount ? [{
+      {
         id: "C",
         label: "Count",
         maxWidth: 76,
@@ -877,7 +867,7 @@ const Root = makeComponent("root", function() {
             },
           }));
         },
-      }] : []),
+      },
       {
         id: "N",
         label: "Name",
