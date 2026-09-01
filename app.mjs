@@ -283,7 +283,7 @@ const FilterStep = makeComponent("filterStep", function(props) {
         attribute: {name: type},
         events: {input: (event) => changeStep(event.target.value)},
       }));
-      for (let n = 20; n >= 1; n--) {
+      for (let n = 1; n <= 20; n++) {
         input.append(Option(n, `${n}${suffix}`));
       }
     } else {
