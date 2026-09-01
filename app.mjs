@@ -283,15 +283,15 @@ const FilterStep = makeComponent("filterStep", function(props) {
         attribute: {name: type},
         events: {input: (event) => changeStep(event.target.value)},
       }));
+      for (let n = 20; n >= 1; n--) {
+        input.append(Option(n, `${n}${suffix}`));
+      }
     } else {
       input = this.append(Input({
         style: {width},
         attribute: {name: type, type: "number", step: 1, min: 0, max: 20},
         events: {input: (event) => changeStep(event.target.value)},
       }));
-    }
-    for (let n = 20; n >= 0; n--) {
-      input.append(Option(n, `${n}${suffix}`));
     }
   } else if (type === "rating") {
     input = this.append(Input({
