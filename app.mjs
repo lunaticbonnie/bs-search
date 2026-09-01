@@ -89,16 +89,16 @@ function setQuery(newQuery) {
 
 // app
 const CompareFilter = {
-  GreaterOrEqual: "0",
-  LesserOrEqual: "1",
-  Equal: "2",
-  NotEqual: "3",
+  GreaterOrEqual: 0,
+  LesserOrEqual: 1,
+  Equal: 2,
+  NotEqual: 3,
 };
 const MatchFilter = {
-  Includes: "0",
-  Excludes: "1",
-  FuzzyIncludes: "2",
-  FuzzyExcludes: "3",
+  Includes: 0,
+  Excludes: 1,
+  FuzzyIncludes: 2,
+  FuzzyExcludes: 3,
 };
 const FILTER_WIDTH = 170;
 function compareSteps(type) {
@@ -108,7 +108,7 @@ function compareSteps(type) {
       width: COMPARE_WIDTH,
       [CompareFilter.GreaterOrEqual]: {label: ">="},
       [CompareFilter.LesserOrEqual]: {label: "<="},
-      [CompareFilter.Equal]: {label: "="},
+      [CompareFilter.Equal]: {label: "=="},
       [CompareFilter.NotEqual]: {label: "!="},
     },
     {
@@ -116,6 +116,9 @@ function compareSteps(type) {
       type,
     },
   ]];
+}
+function isFuzzy(subtype) {
+  return subtype === MatchFilter.FuzzyIncludes || subtype === MatchFilter.FuzzyExcludes;
 }
 const FILTERS = {
   width: FILTER_WIDTH,
@@ -137,9 +140,7 @@ const FILTERS = {
         },
       ],
       (prevSteps) => {
-        const isFuzzy = [MatchFilter.FuzzyIncludes, MatchFilter.FuzzyExcludes].includes(prevSteps[prevSteps.length - 1]);
-        console.log("isFuzzy", prevSteps, isFuzzy)
-        return isFuzzy ? "text" : "tag";
+        return isFuzzy(+prevSteps[prevSteps.length - 1]) ? "text" : "tag";
       },
     ],
   },
@@ -191,14 +192,6 @@ function resolveFilter(filterDefinition, prevValues) {
   const {type = "select", width, suffix, steps, ...extra} = filterDefinition;
   return { type, width, suffix, steps, extra };
 }
-/* TODO: simplify to
-  - First + N tags + include/exclude/fuzzy include/fuzzy exclude
-  - Tag count + includes/excludes
-  - Name + includes/excludes/csv includes/csv excludes
-  - Rating% + >=/<=
-  - Review count + >=/<=
-*/
-// TODO: `paddingRight: 16` on selects
 const DEFAULT_FILTER = ["F", "", "I", 20];
 const Filter = makeComponent("filter", function (props) {
   const {state, changeState, i, j} = props;
@@ -255,7 +248,6 @@ const Filter = makeComponent("filter", function (props) {
 const FilterStep = makeComponent("filterStep", function(props) {
   const {allTags, info, stepValue, changeStep} = props;
   const {type, width = FILTER_WIDTH, suffix = "", extra} = info;
-  console.log(info);
   let input;
   if (type === "select") {
     input = this.append(Select({
@@ -363,7 +355,7 @@ const Filters = makeComponent("filters", function(props) {
     }));
   }
   // new AND
-  const buttons = column.append(FilterButtons({
+  column.append(FilterButtons({
     style: {marginLeft: 110},
     onAdd: () => changeState({filters: [...state.filters, [DEFAULT_FILTER]]}),
     onRemove: () => changeState({filters: [...state.filters].slice(0, state.filters.length - 1)}),
@@ -575,7 +567,7 @@ function getStateFromQuery() {
       while (i >= filters.length) filters.push([]);
       const orFilters = filters[i];
       while (j >= orFilters.length) orFilters.push(DEFAULT_FILTER);
-      orFilters[j] = values;
+      orFilters[j] = values.map(decodeURIPart);
       if (offset === prevOffset) {
         console.error("Broken query.f parser!");
         break;
@@ -661,84 +653,102 @@ const Root = makeComponent("root", function() {
       changeState({dataLoading: false, ...parseData(await response.text())});
     });
   }
+  // filter rows
   const {rows, allTags_set, sort, showCount, markRecent} = state;
   const mappedFilters = state.filters.map(orFilters => orFilters.map(filter => {
-    return filter;
-    // TODO: map filters
-    const {type, value} = filter;
-    const filterGroup = getFilterGroup(type);
-    switch (filterGroup) {
-    case "tag": {
-      if (!allTags_set.has(value)) return {type, value: ""};
+    let [type, value, s0, s1] = filter;
+    s0 = +s0;
+    s1 = +s1;
+    switch (type) {
+    case "F": {
+      if (!isFuzzy(s0) && !allTags_set.has(value)) return [type, "", s0, s1];
     } break;
-    case "rating":
-    case "count": {
-      if (Number.isNaN(+value)) return {type, value: 0};
-    } break;
-    default: {
-      // noop
+    case "T":
+    case "R":
+    case "C": {
+      if (Number.isNaN(+value)) return [type, 0, s0, s1];
     } break;
     }
-    return filter;
+    return [type, value, s0, s1];
   }));
+  function compare(subtype, a, b) {
+    switch (subtype) {
+    case CompareFilter.GreaterOrEqual:
+      return a >= b;
+    case CompareFilter.LesserOrEqual:
+      return a <= b;
+    case CompareFilter.Equal:
+      return a === b;
+    case CompareFilter.NotEqual:
+      return a !== b;
+    default:
+      return true;
+    }
+  }
+  console.log({mappedFilters})
   state.filteredRows = rows.filter(row => (
     mappedFilters.every(orFilters => orFilters.some(filter => {
-      if (!filter?.value) return true;
-      let {type, value} = filter;
+      if (!filter) return true;
+      const type = filter[0];
+      const value = filter[1];
       switch (type) {
-      case FilterType.First20TagsInclude: {
-        return row.tags.indexOf(value) !== -1;
+      case "F": {
+        const subtype = filter[2];
+        const n = filter[3];
+        switch (subtype) {
+        case MatchFilter.Includes: {
+          const i = row.tags.indexOf(value);
+          return i >= 0 && i < n;
+        } break;
+        case MatchFilter.Excludes: {
+          const i = row.tags.indexOf(value);
+          return i < 0 || i >= n;
+        } break;
+        case MatchFilter.FuzzyIncludes: {
+          const valueLowercase = value.toLowerCase();
+          return row.tags.slice(0, n).some(tag => tag.toLowerCase().includes(valueLowercase))
+        } break;
+        case MatchFilter.FuzzyExcludes: {
+          const valueLowercase = value.toLowerCase();
+          return row.tags.slice(0, n).every(tag => !tag.toLowerCase().includes(valueLowercase));
+        } break;
+        }
       } break;
-      case FilterType.First20TagsExclude: {
-        return row.tags.indexOf(value) === -1;
+      case "T": {
+        const subtype = filter[2];
+        return compare(subtype, row.tags.length, value);
       } break;
-      case FilterType.First5TagsInclude: {
-        return row.tags.slice(0, 5).indexOf(value) !== -1;
+      case "R": {
+        const subtype = filter[2];
+        return compare(subtype, row.rating, value);
       } break;
-      case FilterType.First5TagsExclude: {
-        return row.tags.slice(0, 5).indexOf(value) === -1;
+      case "C": {
+        const subtype = filter[2];
+        return compare(subtype, row.reviews, value);
       } break;
-      case FilterType.Fuzzy20Include: {
-        const valueLowercase = value.toLowerCase();
-        return row.tags.some(tag => tag.toLowerCase().includes(valueLowercase));
-      } break;
-      case FilterType.Fuzzy20Exclude: {
-        const valueLowercase = value.toLowerCase();
-        return row.tags.every(tag => !tag.toLowerCase().includes(valueLowercase));
-      } break;
-      case FilterType.Fuzzy5Include: {
-        const valueLowercase = value.toLowerCase();
-        return row.tags.slice(0, 5).some(tag => tag.toLowerCase().includes(valueLowercase));
-      } break;
-      case FilterType.Fuzzy5Exclude: {
-        const valueLowercase = value.toLowerCase();
-        return row.tags.slice(0, 5).every(tag => !tag.toLowerCase().includes(valueLowercase));
-      } break;
-      case FilterType.RatingGTE: {
-        return row.rating >= value;
-      } break;
-      case FilterType.RatingLTE: {
-        return row.rating <= value;
-      } break;
-      case FilterType.ReviewCountGTE: {
-        return row.reviews >= value;
-      } break;
-      case FilterType.ReviewCountLTE: {
-        return row.reviews <= value;
-      } break;
-      case FilterType.NameInclude: {
-        const valueLowercase = value.toLowerCase();
-        return row.name.toLowerCase().includes(valueLowercase);
-      } break;
-      case FilterType.CSVNameInclude: {
-        const rowNameLowercase = row.name.toLowerCase();
-        const csvNames = value.toLowerCase().split(",").map(v => v.trim()).filter(v => v);
-        return csvNames.some(v => rowNameLowercase.includes(v));
-      } break;
-      case FilterType.NameExclude: {
-        const valueLowercase = value.toLowerCase();
-        return !row.name.toLowerCase().includes(valueLowercase);
-      } break;
+      case "N": {
+        const subtype = filter[2];
+        switch (subtype) {
+        case MatchFilter.Includes: {
+          const valueLowercase = value.toLowerCase();
+          return row.name.toLowerCase().includes(valueLowercase);
+        } break;
+        case MatchFilter.Excludes: {
+          const valueLowercase = value.toLowerCase();
+          return !row.name.toLowerCase().includes(valueLowercase);
+        } break;
+        case MatchFilter.FuzzyIncludes: {
+          const rowNameLowercase = row.name.toLowerCase();
+          const words = value.toLowerCase().split(",").map(v => v.trim()).filter(v => v);
+          return words.some(v => rowNameLowercase.includes(v));
+        } break;
+        case MatchFilter.FuzzyExcludes: {
+          const rowNameLowercase = row.name.toLowerCase();
+          const words = value.toLowerCase().split(",").map(v => v.trim()).filter(v => v);
+          return !words.some(v => rowNameLowercase.includes(v));
+        } break;
+        }
+      }
       default: {
         console.error(`FilterType ${type} is not implemented!`);
       } break;
