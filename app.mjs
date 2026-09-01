@@ -192,7 +192,7 @@ function resolveFilter(filterDefinition, prevValues) {
   const {type = "select", width, suffix, steps, ...extra} = filterDefinition;
   return { type, width, suffix, steps, extra };
 }
-const DEFAULT_FILTER = ["F", "", "I", 20];
+const DEFAULT_FILTER = ["F", "", MatchFilter.Includes, 20];
 const Filter = makeComponent("filter", function (props) {
   const {state, changeState, i, j} = props;
   const filterValue = state.filters[i][j];
@@ -600,24 +600,17 @@ function getStateFromQuery() {
   }
   return {filters, sort, showCount, markRecent, pageIndex};
 };
-function getTagHighlight(i, tag, filters) {
-  return false;
-  // TODO: getTagHighlight()
-  for (const filter of filters) {
-    switch (filter.type) {
-    case FilterType.First20TagsInclude:
-    case FilterType.First5TagsInclude: {
-      if (filter.value === tag) return true;
-    } break;
-    case FilterType.Fuzzy5Include: {
-      if (i >= 5) return false;
-    } // fallthrough
-    case FilterType.Fuzzy20Include: {
-      if (tag.toLowerCase().includes(filter.value.toLowerCase())) return true;
-    } break;
+function getTagHighlight(i, tag, tagFilters) {
+  return tagFilters.some(filter => {
+    const [_, value, subtype, n] = filter;
+    if (i >= n) return false;
+    switch (subtype) {
+    case MatchFilter.Includes:
+      return value === tag;
+    case MatchFilter.FuzzyIncludes:
+      return tag.toLowerCase().includes(value.toLowerCase());
     }
-  }
-  return false;
+  });
 }
 const Root = makeComponent("root", function() {
   const [state, changeState] = this.useState((diff, prevState) => {
@@ -750,7 +743,7 @@ const Root = makeComponent("root", function() {
         }
       }
       default: {
-        console.error(`FilterType ${type} is not implemented!`);
+        console.error(`FilterType ${type},${subtype} is not implemented!`);
       } break;
       }
     }))
@@ -833,7 +826,7 @@ const Root = makeComponent("root", function() {
   // table
   const {pageIndex, filteredRows} = state;
   const pagedRows = filteredRows.slice(pageIndex*PAGE_SIZE, (pageIndex+1)*PAGE_SIZE);
-  const flatFilters = mappedFilters.flatMap(v => v);
+  const flatTagFilters = mappedFilters.flatMap(v => v).filter(v => v[0] === "F");
   column.append(Table({
     columns: [
       {
@@ -904,7 +897,7 @@ const Root = makeComponent("root", function() {
           const tagsWrap = cell.append(RowWrap({className: "tags", style: {gap: 4}}));
           for (let i = 0; i < row.tags.length; i++) {
             const tag = row.tags[i];
-            const highlight = getTagHighlight(i, tag, flatFilters);
+            const highlight = getTagHighlight(i, tag, flatTagFilters);
             tagsWrap.append(span(tag, {key: i, className: highlight ? "tag tag-highlight" : "tag"}));
           }
         },
