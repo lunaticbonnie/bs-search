@@ -450,24 +450,24 @@ function parseRowV1(csvRow) {
   return {id, name, rating, recentReviews, reviews, tags};
 }
 function parseRowV2(csvRow) {
-  let [id, name, recentReviews, totalReviews, ...tags] = csvRow.map(decodeCsv);
-  totalReviews = totalReviews.trim();
-  totalReviews = totalReviews.startsWith("(") ? totalReviews.slice(1, -1) : totalReviews;
-  // parse `recentReviews`
+  let [id, name, recentReviews, englishReviews, ...tags] = csvRow.map(decodeCsv);
+  englishReviews = englishReviews.trim().replace("in your language", "in english");
+  // parse `rating`
   let rating = +recentReviews.match(/(\d+)%.*? are positive/)?.[1];
   if (Number.isNaN(rating)) rating = 0;
+  // parse `reviews`
   let reviewsMatch;
-  if (totalReviews) {
-    reviewsMatch = totalReviews.match(/([\d,]+)/)?.[1];
+  if (englishReviews.startsWith("(")) {
+    englishReviews = englishReviews.slice(1, -1);
+    reviewsMatch = englishReviews.match(/([\d,]+)/)?.[1];
   } else {
-    reviewsMatch = recentReviews.match(/([\d,]+) user reviews.*? are positive/)?.[1];
+    reviewsMatch = (englishReviews || recentReviews).match(/([\d,]+) user reviews.*? are positive/)?.[1];
   }
-  // parse `totalReviews`
   let reviews = 0;
   if (reviewsMatch) reviews = +reviewsMatch.replace(/,/g, "");
   else if (recentReviews.startsWith("Need more")) reviews = 5;
   if (Number.isNaN(reviews)) reviews = 0;
-  return {id, name, rating, recentReviews, reviews, totalReviews, tags};
+  return {id, name, rating, recentReviews, reviews, englishReviews, tags};
 }
 const VERSION_MAP = {
   v1: [parseRowV1, 23],
@@ -859,11 +859,12 @@ const Root = makeComponent("root", function() {
               reviews = Math.round(reviews);
             }
           }
-          const recentMarker = markRecent && !row.totalReviews && row.recentReviews.includes("in the last") ? "~" : "";
+          const reviewsString = row.englishReviews || row.recentReviews;
+          const recentMarker = markRecent && reviewsString.includes("in the last") ? "~" : "";
           cell.append(span(`${recentMarker}${reviews}${unit}`, {
             style: {textAlign: "center", width: "100%"},
             attribute: {
-              title: (row.totalReviews || row.recentReviews).replace(/<br>/g, "\n"),
+              title: reviewsString.replace(/<br>/g, "\n"),
             },
           }));
         },
