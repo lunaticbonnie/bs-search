@@ -139,20 +139,23 @@ if __name__ == "__main__":
       name_node = find_html_element(html, lambda node: node["id"] == "appHubAppName")
       name = name_node["textContent"]
       print(f"name: {name}")
-      # parse recent reviews
-      recent_reviews_node = find_html_element(html, lambda node: "user_reviews_summary_row" in node["class"])
-      recent_reviews = recent_reviews_node["data-tooltip-html"]
+      # parse recent/english reviews
+      review_nodes = find_html_elements(html, lambda node: "user_reviews_summary_row" in node["class"])
+      recent_reviews = ""
+      if len(review_nodes) >= 1:
+        recent_reviews_node = review_nodes[0]
+        recent_reviews = recent_reviews_node["data-tooltip-html"]
       print(f"recent_reviews: {recent_reviews}")
-      # parse total_review_count
-      total_review_count_node = find_html_element(html, lambda node: "app_reviews_count" in node["class"])
-      total_review_count = ""
-      if total_review_count_node != None:
-        total_review_count = total_review_count_node["textContent"]
-      print(f"total_review_count: {total_review_count}")
+      english_reviews = ""
+      if len(review_nodes) >= 2:
+        english_reviews_node = review_nodes[1]
+        if "data-tooltip-html" in english_reviews_node:
+          english_reviews = english_reviews_node["data-tooltip-html"]
+      print(f"english_reviews: {english_reviews}")
       # parse tags
       tag_nodes = find_html_elements(html, lambda node: node["tagName"] == "a" and "app_tag" in node["class"] and "add_button" not in node["class"])
       tags = [node["textContent"] for node in tag_nodes]
       print(f"tags: {tags}")
-      games[app_id] = [app_id, name, recent_reviews, total_review_count, *tags]
+      games[app_id] = [app_id, name, recent_reviews, english_reviews, *tags]
     write_games_csv(GAMES_CSV_PATH, games)
     if DEBUG: exit(0)
