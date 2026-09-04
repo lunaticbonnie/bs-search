@@ -252,7 +252,7 @@ const FilterStep = makeComponent("filterStep", function(props) {
   let input;
   if (type === "select") {
     input = this.append(Select({
-      style: {width, paddingRight: 16},
+      style: {width},
       attribute: {name: type},
       events: {input: (event) => changeStep(event.target.value)},
     }));
@@ -262,7 +262,7 @@ const FilterStep = makeComponent("filterStep", function(props) {
     }
   } else if (type === "tag") {
     input = this.append(Select({
-      style: {width, paddingRight: 16},
+      style: {width},
       attribute: {name: type},
       events: {input: (event) => changeStep(event.target.value)},
     }));
@@ -279,7 +279,7 @@ const FilterStep = makeComponent("filterStep", function(props) {
   } else if (type === "tagCount") {
     if (suffix) {
       input = this.append(Select({
-        style: {width, paddingRight: 16},
+        style: {width},
         attribute: {name: type},
         events: {input: (event) => changeStep(event.target.value)},
       }));
