@@ -587,8 +587,8 @@ function getStateFromQuery() {
   } catch (error) {
     console.error(error);
   }
-  // get `markRecent`
-  const markRecent = query.r !== "0";
+  // get `markApproximate`
+  const markApproximate = query.a !== "0";
   // get `pageIndex`
   let pageIndex = 0;
   try {
@@ -596,7 +596,7 @@ function getStateFromQuery() {
   } catch (error) {
     console.error(error);
   }
-  return {filters, sort, markRecent, pageIndex};
+  return {filters, sort, markApproximate, pageIndex};
 };
 function getTagHighlight(i, tag, tagFilters) {
   return tagFilters.some(filter => {
@@ -632,7 +632,7 @@ const Root = makeComponent("root", function() {
     }
     if (newQuery.f === `0,0,${encodeURIParts(DEFAULT_FILTER)}` || newQuery.f === "") delete newQuery.f;
     if (newState.sort) newQuery.s = `${newState.sort.id},${newState.sort.ascending ? "a" : "d"}`;
-    if (!newState.markRecent) newQuery.r = "0";
+    if (!newState.markApproximate) newQuery.a = "0";
     if (newState.pageIndex > 0) newQuery.p = String(newState.pageIndex + 1);
     setQuery(newQuery);
     return newState;
@@ -644,7 +644,7 @@ const Root = makeComponent("root", function() {
     });
   }
   // filter rows
-  const {rows, allTags_set, sort, markRecent} = state;
+  const {rows, allTags_set, sort, markApproximate} = state;
   const mappedFilters = state.filters.map(orFilters => orFilters.map(filter => {
     let [type, value, s0, s1] = filter;
     s0 = +s0;
@@ -805,10 +805,10 @@ const Root = makeComponent("root", function() {
   topRow.append(Filters({state, changeState}));
   const rightPanel = topRow.append(ColumnWrap({style: {marginLeft: "auto", height: "100%", gap: 4}}));
   rightPanel.append(Checkbox({
-    id: "markRecent",
-    label: "Mark recent",
-    checked: markRecent,
-    inputEvents: {input: (event) => changeState({markRecent: event.target.checked})},
+    id: "markApproximate",
+    label: "Mark approximate",
+    checked: markApproximate,
+    inputEvents: {input: (event) => changeState({markApproximate: event.target.checked})},
     style: {marginLeft: "auto"},
   }));
   rightPanel.append(Paging({state, changeState}));
@@ -860,7 +860,7 @@ const Root = makeComponent("root", function() {
             }
           }
           const reviewsString = row.englishReviews || row.recentReviews;
-          const recentMarker = markRecent && reviewsString.includes("in the last") ? "~" : "";
+          const recentMarker = markApproximate && reviewsString.includes("in the last") ? "~" : "";
           cell.append(span(`${recentMarker}${reviews}${unit}`, {
             style: {textAlign: "center", width: "100%"},
             attribute: {
