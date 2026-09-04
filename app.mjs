@@ -162,8 +162,8 @@ const FILTERS = {
       {
         [MatchFilter.Includes]: {label: "includes"},
         [MatchFilter.Excludes]: {label: "excludes"},
-        [MatchFilter.FuzzyIncludes]: {label: "fuzzy includes"},
-        [MatchFilter.FuzzyExcludes]: {label: "fuzzy excludes"},
+        [MatchFilter.FuzzyIncludes]: {label: "fuzzy includes (csv)"},
+        [MatchFilter.FuzzyExcludes]: {label: "fuzzy excludes (csv)"},
       },
       (prevSteps) => ({
         width: prevSteps[prevSteps.length - 1].startsWith("C") ? 500 : undefined,
