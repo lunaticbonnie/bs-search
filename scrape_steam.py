@@ -18,7 +18,7 @@ assert(SECONDS_BETWEEN_REQUESTS >= 10)
 
 # args
 DEBUG = "debug" in argv
-print(f"DEBUG: {DEBUG}")
+print(f"DEBUG: {DEBUG}", flush=True)
 
 # request utils
 def fetch_text(url, params = None, **kwargs):
@@ -108,7 +108,7 @@ if __name__ == "__main__":
   start = read_int(START_TXT_PATH)
   while True:
     # GET next page of `app_ids`
-    print(f"-- {start}:{start + PAGE_SIZE} --")
+    print(f"-- {start}:{start + PAGE_SIZE} --", flush=True)
     response, response_ok = fetch_text("https://store.steampowered.com/search/results/", {
       # DLC=21, Software=994, Mods=997, Games=998
       "category1": "21,994,997,998",
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     # parse `results_html`
     results_html = data["results_html"]
     app_ids = re.findall(r'data-ds-appid="(\d+)"', results_html)
-    print(f"app_ids: {app_ids}")
+    print(f"app_ids: {app_ids}", flush=True)
     if DEBUG: app_ids = app_ids[:1]
     # set next request to next page
     start += PAGE_SIZE
@@ -156,7 +156,7 @@ if __name__ == "__main__":
       # parse tags
       tag_nodes = find_html_elements(html, lambda node: node["tagName"] == "a" and "app_tag" in node["class"] and "add_button" not in node["class"])
       tags = [node["textContent"] for node in tag_nodes]
-      print(f"tags: {tags}")
+      print(f"tags: {tags}", flush=True)
       games[app_id] = [app_id, name, recent_reviews, english_reviews, *tags]
     write_games_csv(GAMES_CSV_PATH, games)
     if DEBUG: exit(0)
