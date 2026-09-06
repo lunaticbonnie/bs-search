@@ -794,6 +794,21 @@ const Root = makeComponent("root", function() {
         });
       }
     } break;
+    case "T": {
+      if (ascending) {
+        state.filteredRows.sort((a, b) => {
+          const a_key = a.tags.length;
+          const b_key = b.tags.length;
+          return (a_key > b_key) - (a_key < b_key);
+        });
+      } else {
+        state.filteredRows.sort((a, b) => {
+          const a_key = a.tags.length;
+          const b_key = b.tags.length;
+          return (a_key < b_key) - (a_key > b_key);
+        });
+      }
+    } break;
     default: {
       console.error(`Invalid sort id: '${id}'`);
     };
@@ -892,7 +907,6 @@ const Root = makeComponent("root", function() {
             tagsWrap.append(span(tag, {key: i, className: highlight ? "tag tag-highlight" : "tag"}));
           }
         },
-        disableSorting: true,
       },
     ],
     rows: pagedRows,
