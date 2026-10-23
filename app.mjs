@@ -433,13 +433,8 @@ const Table = makeComponent("table", function(props) {
   }
 });
 
-function decodeCsv(value) {
-  if (!value.startsWith('"')) return value;
-  value = value.slice(1, value.length-1);
-  return value.replace(/""/g, '"');
-}
 function parseRowV1(csvRow) {
-  const [id, name, recentReviews, ...tags] = csvRow.map(decodeCsv);
+  const [id, name, recentReviews, ...tags] = csvRow;
   let rating = +recentReviews.match(/(\d+)%.*? are positive/)?.[1];
   if (Number.isNaN(rating)) rating = 0;
   const reviewsMatch = recentReviews.match(/([\d,]+) user reviews.*? are positive/)?.[1];
@@ -450,7 +445,8 @@ function parseRowV1(csvRow) {
   return {id, name, rating, recentReviews, reviews, tags};
 }
 function parseRowV2(csvRow) {
-  let [id, name, recentReviews, englishReviews, ...tags] = csvRow.map(decodeCsv);
+  console.log(csvRow);
+  let [id, name, recentReviews, englishReviews, ...tags] = csvRow;
   englishReviews = englishReviews.trim().replace("in your language", "in english");
   // parse `rating`
   let rating = +recentReviews.match(/(\d+)%.*? are positive/)?.[1];
@@ -483,7 +479,7 @@ function parseCsvRow(csvLine) {
     if (i < csvLine.length && csvLine[i] === '"') {
       // quoted csv
       i += 1;
-      j += 2;
+      j += 1;
       while (j < csvLine.length) {
         if (csvLine[j] === '"') {
           if (j+1 < csvLine.length, csvLine[j+1] === '"') {
