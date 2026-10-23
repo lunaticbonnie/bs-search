@@ -445,7 +445,6 @@ function parseRowV1(csvRow) {
   return {id, name, rating, recentReviews, reviews, tags};
 }
 function parseRowV2(csvRow) {
-  console.log(csvRow);
   let [id, name, recentReviews, englishReviews, ...tags] = csvRow;
   englishReviews = englishReviews.trim().replace("in your language", "in english");
   // parse `rating`
