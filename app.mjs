@@ -528,11 +528,17 @@ function parseData(csvText) {
     for (const tag of row.tags) allTags_set.add(tag);
   }
   const allTags = Array.from(allTags_set).sort();
-  const key = (row) => row.rating * row.reviews;
   rows.sort((a, b) => {
-    const key_a = key(a);
-    const key_b = key(b);
-    return (key_a < key_b) - (key_a > key_b);
+    // rating * reviews
+    const a0 = a.rating * a.reviews;
+    const b0 = b.rating * b.reviews;
+    let diff = (a0 < b0) - (a0 > b0);
+    if (diff !== 0) return diff;
+    // -reviews
+    const a1 = a.reviews;
+    const b1 = b.reviews;
+    diff = (a1 > b1) - (a1 < b1);
+    return diff;
   });
   return {rows, allTags, allTags_set};
 }
@@ -834,7 +840,10 @@ const Root = makeComponent("root", function() {
         label: "Rating",
         maxWidth: 76,
         render: (row, cell) => {
-          cell.append(span(`${row.rating}%`, {style: {textAlign: "center", width: "100%"}, attribute: {title: row.recentReviews}}));
+          cell.append(span(`${row.rating}%`, {
+            style: {textAlign: "center", width: "100%"},
+            attribute: {title: row.recentReviews.replace(/<br>/g, "\n")},
+          }));
         },
       },
       {
