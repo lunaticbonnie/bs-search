@@ -206,7 +206,7 @@ const Filter = makeComponent("filter", function (props) {
     newFilters.splice(i, 1, newOrFilters);
     changeState({filters: newFilters, pageIndex: 0});
   }
-  // render type select
+  // render
   let prevStepCount = 0;
   const renderSubstep = (parent, filterDefinition, stepIndex) => {
     parent.append(FilterStep({
@@ -228,7 +228,7 @@ const Filter = makeComponent("filter", function (props) {
     const {steps = []} = FILTERS[filterType];
     for (const step of steps) {
       if (Array.isArray(step)) {
-        const row = column.append(Row());
+        const row = column.append(Row({style: {alignItems: "stretch"}}));
         for (const substep of step) {
           renderSubstep(row, substep, --stepIndex);
         }
