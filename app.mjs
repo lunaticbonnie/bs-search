@@ -562,24 +562,16 @@ function getStateFromQuery() {
   // get `filters`
   const filters = [];
   try {
-    let f = query.f ? query.f.split(",") : [0, 0, ...DEFAULT_FILTER];
-    if (f[0] === "v1") f = [];
-    let offset = 0;
-    let prevOffset = 0;
-    while (offset < f.length) {
-      const [i, j] = f.slice(offset, offset + 2);
-      offset += 2;
-      const values = f.slice(offset, offset + MAX_FILTER_SIZE);
-      offset += MAX_FILTER_SIZE;
-      while (i >= filters.length) filters.push([]);
+    // get query filter array
+    let f = query.f ? query.f.split(";").map(v => v.split(",")) : [[0, 0, ...DEFAULT_FILTER]];
+    if (query.f?.startsWith("v1,")) f = [];
+    // make filter tree
+    for (let filterInfo of f) {
+      const [i, j, ...values] = filterInfo;
+      while (i >= filters.length) filters.push([[...DEFAULT_FILTER]]);
       const orFilters = filters[i];
-      while (j >= orFilters.length) orFilters.push(DEFAULT_FILTER);
-      orFilters[j] = values.map(decodeURIPart);
-      if (offset === prevOffset) {
-        console.error("Broken query.f parser!");
-        break;
-      }
-      prevOffset = offset;
+      while (j >= orFilters.length) orFilters.push([...DEFAULT_FILTER]);
+      orFilters[j].splice(0, values.length, ...values.map(decodeURIPart));
     }
   } catch (error) {
     console.error(error);
@@ -634,7 +626,7 @@ const Root = makeComponent("root", function() {
       const orFilters = newState.filters[i];
       for (let j = 0; j < orFilters.length; j++) {
         const filterValues = orFilters[j];
-        newQuery.f += `${newQuery.f ? "," : ""}${i},${j},${encodeURIParts(filterValues)}`;
+        newQuery.f += `${newQuery.f ? ";" : ""}${i},${j},${encodeURIParts(filterValues)}`;
       }
     }
     if (newQuery.f === `0,0,${encodeURIParts(DEFAULT_FILTER)}` || newQuery.f === "") delete newQuery.f;
