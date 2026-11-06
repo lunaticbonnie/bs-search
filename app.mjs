@@ -366,36 +366,42 @@ const PAGE_SIZE = 50;
 function getPageCount(state) {
   return Math.ceil((state.filteredRows?.length ?? 0) / PAGE_SIZE);
 }
+function getPageInfo(state) {
+  const {pageIndex} = state;
+  const pageCount = getPageCount(state);
+  return {
+    pageIndex,
+    pageCount,
+    leftArrowDisabled: pageIndex <= 0,
+    rightArrowDisabled: pageIndex >= pageCount-1,
+  }
+}
 const Paging = makeComponent("paging", function(props) {
   const {state, changeState} = props;
-  const {pageIndex} = state;
-  const pageNumber = pageIndex + 1;
-  const pageCount = getPageCount(state);
+  const {pageIndex, pageCount, leftArrowDisabled, rightArrowDisabled} = getPageInfo(state);
 
   const row = this.append(RowWrap({style: {
     marginTop: "auto",
     gap: 4,
     ...props.style,
   }}));
-  row.append(span(`Page ${pageNumber} of ${pageCount}`));
-  const leftArrowDisabled = pageIndex <= 0;
+  row.append(span(`Page ${pageIndex + 1} of ${pageCount}`));
   row.append(IconButton("chevron_right", {
     disabled: leftArrowDisabled,
-    onClick: () => {
-      if (event.shiftKey) changeState({pageIndex: 0});
+    onClick: (/**@type {MouseEvent}*/event) => {
+      if (event.shiftKey || event.ctrlKey) changeState({pageIndex: 0});
       else changeState({pageIndex: pageIndex - 1});
     },
     style: {transform: "rotate(180deg)", overflow: "hidden"},
-    attribute: {title: leftArrowDisabled ? "": "Hold shift to go to the start"},
+    attribute: {title: leftArrowDisabled ? "": "Ctrl or shift click to go to the start"},
   }));
-  const rightArrowDisabled = pageNumber >= pageCount;
   row.append(IconButton("chevron_right", {
     disabled: rightArrowDisabled,
     onClick: (event) => {
-      if (event.shiftKey) changeState({pageIndex: pageCount - 1});
+      if (event.shiftKey || event.ctrlKey) changeState({pageIndex: pageCount - 1});
       else changeState({pageIndex: pageIndex + 1});
     },
-    attribute: {title: rightArrowDisabled ? "": "Hold shift to go to the end"},
+    attribute: {title: rightArrowDisabled ? "": "Ctrl or shift click to go to the end"},
   }));
 });
 function getNextSort(sort, id) {
@@ -925,5 +931,31 @@ const Root = makeComponent("root", function() {
     },
     style: {marginLeft: "auto", marginRight: 0, marginTop: -8, paddingBottom: 4},
   }));
+  const navigateByKey = (/**@type {KeyboardEvent}*/event) => {
+    const /**@type {HTMLElement|null}*/target = event.target;
+    const tagName = target.tagName;
+    if (tagName === "INPUT" || tagName === "SELECT") return;
+    const {pageIndex, pageCount, leftArrowDisabled, rightArrowDisabled} = getPageInfo(state);
+    switch (event.key) {
+    case "ArrowLeft": {
+      if (leftArrowDisabled) return;
+      if (event.ctrlKey) changeState({pageIndex: 0});
+      else changeState({pageIndex: pageIndex - 1});
+    } break;
+    case "ArrowRight": {
+      if (rightArrowDisabled) return;
+      if (event.ctrlKey) changeState({pageIndex: pageCount-1});
+      else changeState({pageIndex: pageIndex + 1});
+    } break;
+    }
+  };
+  return {
+    onMount: () => {
+      window.addEventListener("keydown", navigateByKey);
+    },
+    onUnmount: () => {
+      window.removeEventListener("keydown", navigateByKey);
+    },
+  }
 });
 renderRoot(Root());
