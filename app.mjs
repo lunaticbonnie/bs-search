@@ -186,14 +186,13 @@ function _computeFilterSize(info) {
   return n;
 }
 const FILTER_SIZE = Object.fromEntries(Object.entries(resolveFilter(FILTERS, []).extra).map(([k, v]) => [k, _computeFilterSize(v)]));
-const MAX_FILTER_SIZE = Object.values(FILTER_SIZE).reduce((acc, v) => Math.max(acc, v));;
 function resolveFilter(filterDefinition, prevValues) {
   if (typeof filterDefinition === "function") filterDefinition = filterDefinition(prevValues)
   if (typeof filterDefinition === "string") return {type: filterDefinition};
   const {type = "select", width, suffix, steps, ...extra} = filterDefinition;
   return { type, width, suffix, steps, extra };
 }
-const DEFAULT_FILTER = ["F", "", MatchFilter.Includes, 20];
+const DEFAULT_FILTER = ["F", "", MatchFilter.Includes, 20].map(String);
 const Filter = makeComponent("filter", function (props) {
   const {state, changeState, i, j} = props;
   const filterValue = state.filters[i][j];
@@ -625,11 +624,15 @@ const Root = makeComponent("root", function() {
     for (let i = 0; i < newState.filters.length; i++) {
       const orFilters = newState.filters[i];
       for (let j = 0; j < orFilters.length; j++) {
-        const filterValues = orFilters[j];
-        newQuery.f += `${newQuery.f ? ";" : ""}${i},${j},${encodeURIParts(filterValues)}`;
+        const filterValues = [...orFilters[j]];
+        for (let k = filterValues.length - 1; k >= 0; k--) {
+          if (filterValues[k] !== DEFAULT_FILTER[k]) break;
+          filterValues.pop();
+        }
+        newQuery.f += `${newQuery.f ? ";" : ""}${i},${j}${filterValues.length ? "," : ""}${encodeURIParts(filterValues)}`;
       }
     }
-    if (newQuery.f === `0,0,${encodeURIParts(DEFAULT_FILTER)}` || newQuery.f === "") delete newQuery.f;
+    if (newQuery.f === `0,0` || newQuery.f === "") delete newQuery.f;
     if (newState.sort) newQuery.s = `${newState.sort.id},${newState.sort.ascending ? "a" : "d"}`;
     if (!newState.markApproximate) newQuery.a = "0";
     if (newState.pageIndex > 0) newQuery.p = String(newState.pageIndex + 1);
